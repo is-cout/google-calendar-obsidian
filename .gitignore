@@ -15,5 +15,8 @@ main.js
 # obsidian
 data.json
 
+# local build config (machine-specific vault path for copy-to-vault)
+.env.local
+
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
