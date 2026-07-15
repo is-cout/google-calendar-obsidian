@@ -98,7 +98,7 @@
             </div>
         {/if}
 
-        {#if ['week', 'schedule'].includes(codeBlockOptions.type)}
+        {#if ['week'].includes(codeBlockOptions.type)}
             <label for="timespan">Timespan</label>
             <div class="setting rangeSettings">
                 <RangeSlider pipstep={5} bind:values={timespan} min={0} max={15} step={1} all='label' pips float/>

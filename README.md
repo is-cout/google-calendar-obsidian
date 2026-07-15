@@ -12,6 +12,9 @@ Manage your Google Calendar from inside Obsidian.
 - Delete Events
 - Auto create Notes from Events
 - Insert Links to Events into Notes
+- Connect multiple Google accounts at once, with per-calendar selection across all of them
+- Month view: toggle button to hide per-day event dots for a clean calendar
+- Schedule view: single-day agenda with duration-sized event cards and side-by-side overlap
 - And more...
 
 ## Getting Started

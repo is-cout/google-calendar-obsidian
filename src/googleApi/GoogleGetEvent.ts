@@ -19,14 +19,15 @@ export async function googleGetEvent(eventId: string, calendarId?: string): Prom
 	
 	const calendars = await googleListCalendars();
 	if(calendarId){
-		const foundEvent = await callRequest(`https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${eventId}`, "GET", null)
-		foundEvent.parent = calendars.find(calendar => calendar.id === calendarId);
+		const parentCalendar = calendars.find(calendar => calendar.id === calendarId);
+		const foundEvent = await callRequest(`https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${eventId}`, "GET", null, false, parentCalendar?.account)
+		foundEvent.parent = parentCalendar;
 		return foundEvent;
 	}
 
 	for (const calendar of calendars) {
 		try {
-			const foundEvent = await callRequest(`https://www.googleapis.com/calendar/v3/calendars/${calendar.id}/events/${eventId}`, "GET", null)
+			const foundEvent = await callRequest(`https://www.googleapis.com/calendar/v3/calendars/${calendar.id}/events/${eventId}`, "GET", null, false, calendar.account)
 			if(foundEvent && foundEvent.id === eventId){
 				foundEvent.parent = calendar;
 				return foundEvent;

@@ -177,7 +177,7 @@ async function requestEventsFromApi(
 			url += `&pageToken=${tmpRequestResult.nextPageToken}`;
 		}
 
-		tmpRequestResult = await callRequest(url, "GET", null);
+		tmpRequestResult = await callRequest(url, "GET", null, false, GoogleCalendar.account);
 		
 		const newList = tmpRequestResult.items.filter((event) => {
 			event.parent = GoogleCalendar;

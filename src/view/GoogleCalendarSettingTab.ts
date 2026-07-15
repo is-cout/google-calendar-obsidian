@@ -9,7 +9,7 @@ import {
 	Platform,
 } from "obsidian";
 import { LoginGoogle, StartLoginGoogleMobile } from "../googleApi/GoogleAuth";
-import { getRefreshToken, setAccessToken, setExpirationTime, setRefreshToken } from "../helper/LocalStorage";
+import { clearAccountTokens } from "../helper/LocalStorage";
 import { listCalendars } from "../googleApi/GoogleListCalendars";
 import { FileSuggest } from "../suggest/FileSuggest";
 import { FolderSuggest } from "../suggest/FolderSuggester";
@@ -27,17 +27,41 @@ export class GoogleCalendarSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 
-		const isLoggedIn = getRefreshToken();
-
 		containerEl.empty();
 
 		containerEl.createEl("h2", { text: "Settings for Google Calendar" });
 		containerEl.createEl("h4", { text: "Please restart Obsidian to let changes take effect" })
 
+		// ---- Connected accounts ----
+		containerEl.createEl("h3", { text: "Connected accounts" });
+
+		if (this.plugin.settings.accounts.length === 0) {
+			containerEl.createEl("p", { text: "No accounts connected yet. Configure a client below and add one." });
+		}
+
+		this.plugin.settings.accounts.forEach((account) => {
+			new Setting(containerEl)
+				.setClass("SubSettings")
+				.setName(account.label)
+				.setDesc(account.useCustomClient ? "Custom client" : "Default client")
+				.addButton((button) => {
+					button.setButtonText("Remove");
+					button.onClick(async () => {
+						clearAccountTokens(account.id);
+						this.plugin.settings.accounts = this.plugin.settings.accounts.filter((a) => a.id !== account.id);
+						this.plugin.settings.calendarBlackList = this.plugin.settings.calendarBlackList.filter((c) => c[0] !== account.id);
+						await this.plugin.saveSettings();
+						this.display();
+					});
+				});
+		});
+
+		// ---- Client config for the NEXT account to add ----
+		containerEl.createEl("h3", { text: "Add an account" });
 
 		const clientDesc = document.createDocumentFragment();
 		clientDesc.append(
-			"Use own authentication client",
+			"Use own authentication client for the next account",
 			clientDesc.createEl("br"),
 			"Check the ",
 			clientDesc.createEl("a", {
@@ -55,9 +79,6 @@ export class GoogleCalendarSettingTab extends PluginSettingTab {
 				toggle
 					.setValue(this.plugin.settings.useCustomClient)
 					.onChange(async (value) => {
-						setRefreshToken("");
-						setAccessToken("");
-						setExpirationTime(0);
 						if (value === false) {
 							new OAuthAlertModal(app).open();
 						}
@@ -114,27 +135,20 @@ export class GoogleCalendarSettingTab extends PluginSettingTab {
 		}
 
 		new Setting(containerEl)
-			.setName("Login with google")
+			.setName("Add account")
+			.setDesc("Log in with Google to connect another account")
 			.addButton(button => {
 				button
-					.setButtonText(isLoggedIn ? "Logout" : "Login")
+					.setButtonText("Add account")
 					.onClick(() => {
-						if (isLoggedIn) {
-							setRefreshToken("");
-							setAccessToken("");
-							setExpirationTime(0);
-							this.hide();
-							this.display();
-						} else {
-							if (Platform.isMobileApp) {
-								if (this.plugin.settings.useCustomClient) {
-									StartLoginGoogleMobile();
-								} else {
-									window.open(`${this.plugin.settings.googleOAuthServer}/api/google`)
-								}
+						if (Platform.isMobileApp) {
+							if (this.plugin.settings.useCustomClient) {
+								StartLoginGoogleMobile();
 							} else {
-								LoginGoogle()
+								window.open(`${this.plugin.settings.googleOAuthServer}/api/google`)
 							}
+						} else {
+							LoginGoogle()
 						}
 					})
 			})
@@ -471,9 +485,10 @@ export class GoogleCalendarSettingTab extends PluginSettingTab {
 					const calendars = await listCalendars();
 
 					calendars.forEach((calendar) => {
+						const accountLabel = calendar.account?.label ? ` (${calendar.account.label})` : "";
 						dropdown.addOption(
 							calendar.id,
-							calendar.summary
+							calendar.summary + accountLabel
 						);
 					});
 					dropdown.setValue(this.plugin.settings.defaultCalendar);
@@ -494,9 +509,10 @@ export class GoogleCalendarSettingTab extends PluginSettingTab {
 					const calendars = await listCalendars();
 
 					calendars.forEach((calendar) => {
+						const accountLabel = calendar.account?.label ? ` (${calendar.account.label})` : "";
 						dropdown.addOption(
 							calendar.id + "_=_" + calendar.summary,
-							calendar.summary
+							calendar.summary + accountLabel
 						);
 
 					});
@@ -564,8 +580,9 @@ export function settingsAreCorret(): boolean {
 }
 
 export function settingsAreCompleteAndLoggedIn(): boolean {
+	const plugin = GoogleCalendarPlugin.getInstance();
 
-	if (!getRefreshToken() || getRefreshToken() == "") {
+	if (!plugin.settings.accounts?.length) {
 		createNotice(
 			"Google Calendar missing settings or not logged in"
 		);

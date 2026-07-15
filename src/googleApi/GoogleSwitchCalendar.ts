@@ -26,7 +26,8 @@ export async function googleSwitchCalendar(
     }
 
     let calenderId = ""
-    
+    const account = event?.parent?.account;
+
     if(event?.parent?.id){
         calenderId = event.parent.id;
     }else{
@@ -34,10 +35,10 @@ export async function googleSwitchCalendar(
     }
 
     if(calenderId === ""){
-        throw new GoogleApiError("Could not switch Calendar for Event because no default calendar selected in Settings", null, 999, {error: "No calendar set"})    
+        throw new GoogleApiError("Could not switch Calendar for Event because no default calendar selected in Settings", null, 999, {error: "No calendar set"})
     }
 
-	await callRequest(`https://www.googleapis.com/calendar/v3/calendars/${calenderId}/events/${event.recurringEventId ?? event.id}/move?destination=${newCalendarId}`, "POST", event)
+	await callRequest(`https://www.googleapis.com/calendar/v3/calendars/${calenderId}/events/${event.recurringEventId ?? event.id}/move?destination=${newCalendarId}`, "POST", event, false, account)
     const calendars = await googleListCalendars()
     _event.parent = calendars.find(calendar => calendar.id === newCalendarId);
 

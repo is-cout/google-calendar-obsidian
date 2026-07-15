@@ -44,12 +44,20 @@ export async function googleListCalendars(): Promise<GoogleCalendar[]> {
 		return filterCalendarsByBlackList(plugin, cachedCalendars);
 	}
 
-	// Added a lock to prevent multiple requests at the same time
-
-	const calendarList: GoogleCalendarList = await callRequest(`https://www.googleapis.com/calendar/v3/users/me/calendarList`, "GET", null)
+	// Fetch the calendar list of every connected account and tag each calendar with its
+	// owning account so later event requests use that account's token.
+	let allCalendars: GoogleCalendar[] = [];
+	for (const account of plugin.settings.accounts) {
+		const calendarList: GoogleCalendarList = await callRequest(`https://www.googleapis.com/calendar/v3/users/me/calendarList`, "GET", null, false, account)
+		const items = (calendarList?.items ?? []).map((calendar) => {
+			calendar.account = account;
+			return calendar;
+		});
+		allCalendars = [...allCalendars, ...items];
+	}
 
 	// Display calendar list like Google Calendar. Primary Cal at the top, and others sorted alphabetically
-	cachedCalendars = sortByField(calendarList.items, "summary", "primary");
+	cachedCalendars = sortByField(allCalendars, "summary", "primary");
 
 	const calendars = filterCalendarsByBlackList(plugin, cachedCalendars);
 

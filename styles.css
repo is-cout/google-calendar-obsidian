@@ -41,6 +41,18 @@
 	pointer-events: all;
 }
 
+/* Hide per-day event dots when the month view toggle is off (daily-note dots stay) */
+.gcal-hide-event-dots [class*="googleCalendarDot_"] {
+	display: none !important;
+}
+
+.gcal-toggle-dots {
+	margin-bottom: 6px;
+	font-size: 0.75rem;
+	padding: 2px 8px;
+	cursor: pointer;
+}
+
 /* Styling for month view dots by calendar color */
 .googleCalendarDot_1 {
 	fill: #ac725e !important;

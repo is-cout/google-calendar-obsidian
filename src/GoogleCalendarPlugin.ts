@@ -16,7 +16,8 @@ import { WebCalendarView, VIEW_TYPE_GOOGLE_CALENDAR_WEB } from "./view/WebCalend
 import { EventView, VIEW_TYPE_GOOGLE_CALENDAR_EVENT_DETAILS } from "./view/EventDetailsView";
 import { ScheduleCalendarView, VIEW_TYPE_GOOGLE_CALENDAR_SCHEDULE } from "./view/ScheduleCalendarView";
 import { checkEditorForAtDates } from "./helper/CheckEditorForAtDates";
-import { setAccessToken, setExpirationTime, setRefreshToken } from "./helper/LocalStorage";
+import { getLegacyAccessToken, getLegacyExpirationTime, getLegacyRefreshToken, clearLegacyTokens, setAccessToken, setExpirationTime } from "./helper/LocalStorage";
+import { addAccountFromTokens } from "./googleApi/GoogleAuth";
 import { EventListModal } from './modal/EventListModal';
 import { checkForEventNotes, createNoteFromEvent } from "./helper/AutoEventNoteCreator";
 import { EventDetailsModal } from "./modal/EventDetailsModal";
@@ -41,6 +42,7 @@ const DEFAULT_SETTINGS: GoogleCalendarPluginSettings = {
 	googleClientId: "",
 	googleClientSecret: "",
 	googleRefreshToken: "",
+	accounts: [],
 	useCustomClient: true,
 	googleOAuthServer: "https://obsidian-google-calendar.vercel.app",
 	refreshInterval: 10,
@@ -730,11 +732,11 @@ export default class GoogleCalendarPlugin extends Plugin {
 
 			// Login for Mobile client with public client
 			if(Platform.isMobile && req.at){
-				setAccessToken(req['at']);
-				setRefreshToken(req['rt']);
-				setExpirationTime(+new Date() + 3600000);
-				new Notice("Login successful!");
-				this.settingsTab.display();
+				await addAccountFromTokens(this, {
+					refresh_token: req['rt'],
+					access_token: req['at'],
+					expires_in: 3600,
+				});
 			}
 		});
 
@@ -779,6 +781,39 @@ export default class GoogleCalendarPlugin extends Plugin {
 			DEFAULT_SETTINGS,
 			await this.loadData()
 		);
+
+		await this.migrateLegacyAccount();
+	}
+
+	// Migrate a pre-multi-account install (single refresh token in localStorage) into the
+	// accounts model, so an existing logged-in user stays logged in after the upgrade.
+	async migrateLegacyAccount(): Promise<void> {
+		if (!Array.isArray(this.settings.accounts)) {
+			this.settings.accounts = [];
+		}
+		if (this.settings.accounts.length > 0) return;
+
+		const legacyRefreshToken = getLegacyRefreshToken();
+		if (!legacyRefreshToken) return;
+
+		const id = "legacy-" + Date.now();
+		this.settings.accounts.push({
+			id,
+			label: "Google Account",
+			refreshToken: legacyRefreshToken,
+			useCustomClient: this.settings.useCustomClient,
+			clientId: this.settings.googleClientId,
+			clientSecret: this.settings.googleClientSecret,
+			oAuthServer: this.settings.googleOAuthServer,
+		});
+
+		const legacyAccess = getLegacyAccessToken();
+		const legacyExpiration = getLegacyExpirationTime();
+		if (legacyAccess) setAccessToken(id, legacyAccess);
+		if (legacyExpiration) setExpirationTime(id, legacyExpiration);
+
+		clearLegacyTokens();
+		await this.saveData(this.settings);
 	}
 
 	async saveSettings(): Promise<void> {

@@ -55,7 +55,8 @@ export async function googleUpdateEvent(
     }
 
     let calenderId = ""
-    
+    const account = event?.parent?.account;
+
     if(event?.parent?.id){
         calenderId = event.parent.id;
         event.start.timeZone = event.parent.timeZone;
@@ -66,10 +67,10 @@ export async function googleUpdateEvent(
     }
 
     if(calenderId === ""){
-        throw new GoogleApiError("Could not create Google Event because no default calendar selected in Settings", null, 999, {error: "No calendar set"})    
+        throw new GoogleApiError("Could not create Google Event because no default calendar selected in Settings", null, 999, {error: "No calendar set"})
     }
 
-	const updatedEvent = await callRequest(`https://www.googleapis.com/calendar/v3/calendars/${calenderId}/events/${event.id}`, "PUT", event)
+	const updatedEvent = await callRequest(`https://www.googleapis.com/calendar/v3/calendars/${calenderId}/events/${event.id}`, "PUT", event, false, account)
     const calendars = await googleListCalendars()
     updatedEvent.parent = calendars.find(calendar => calendar.id === calenderId);
 

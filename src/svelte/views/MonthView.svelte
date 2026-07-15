@@ -31,6 +31,19 @@
     let today = window.moment();
     let plugin = GoogleCalendarPlugin.getInstance();
 
+    // Event dots are shown unless explicitly disabled; toggle persists per month view.
+    $: hideEventDots = codeBlockOptions.showEventDots === false;
+    const toggleEventDots = () => {
+        const currentlyShown = codeBlockOptions.showEventDots !== false;
+        codeBlockOptions.showEventDots = !currentlyShown;
+        codeBlockOptions = codeBlockOptions;
+        plugin.settings.viewSettings["month"] = {
+            ...plugin.settings.viewSettings["month"],
+            showEventDots: codeBlockOptions.showEventDots,
+        };
+        plugin.saveSettings();
+    };
+
     async function getSource(month:moment.Moment) {
 
         plugin.settings.dailyNoteDotColor = plugin.settings.dailyNoteDotColor;
@@ -311,8 +324,13 @@
     <div class="gcal-calendar-container">
         {#if loading}
             <p>Loading...</p>
-        {:else} 
-            <div style="--daily-dot-color: {plugin.settings.dailyNoteDotColor}">
+        {:else}
+            <button
+                class="gcal-toggle-dots"
+                aria-label={hideEventDots ? "Show event dots" : "Hide event dots"}
+                on:click={toggleEventDots}
+            >{hideEventDots ? "Show dots" : "Hide dots"}</button>
+            <div style="--daily-dot-color: {plugin.settings.dailyNoteDotColor}" class:gcal-hide-event-dots={hideEventDots}>
                 <CalendarBase
                     showWeekNums={plugin.settings.useWeeklyNotes}
                     {onClickDay}
@@ -335,7 +353,7 @@
         {#if loading}
             <p>Loading...</p>
         {:else} 
-            <div style="--theme-color: {plugin.settings.dailyNoteDotColor}">
+            <div style="--theme-color: {plugin.settings.dailyNoteDotColor}" class:gcal-hide-event-dots={hideEventDots}>
                 <CalendarBase
                     showWeekNums={false}
                     {onClickDay}

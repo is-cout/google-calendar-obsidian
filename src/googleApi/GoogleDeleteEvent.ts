@@ -25,6 +25,7 @@ export async function googleDeleteEvent(
 	}
 
     let calendarId = event.parent?.id;
+    const account = event.parent?.account;
 
     if(!calendarId) {
         calendarId = plugin.settings.defaultCalendar ?? "";
@@ -41,7 +42,7 @@ export async function googleDeleteEvent(
 		id = event.id;
 	}
 
-	const response = await callRequest(`https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${id}`, 'DELETE', null);
+	const response = await callRequest(`https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${id}`, 'DELETE', null, false, account);
 	return response;
 }
 

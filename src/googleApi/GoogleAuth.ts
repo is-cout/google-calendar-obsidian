@@ -10,17 +10,15 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 
 import GoogleCalendarPlugin from './../GoogleCalendarPlugin';
+import type { GoogleAccount } from "../helper/types";
 import {
 	settingsAreComplete,
-	settingsAreCompleteAndLoggedIn,
 } from "../view/GoogleCalendarSettingTab";
 import {
 	getAccessToken,
 	getExpirationTime,
-	getRefreshToken,
 	setAccessToken,
 	setExpirationTime,
-	setRefreshToken,
 } from "../helper/LocalStorage";
 import { Notice, Platform, requestUrl } from "obsidian";
 import { createNotice } from 'src/helper/NoticeHelper';
@@ -56,40 +54,38 @@ async function generateChallenge(verifier: string): Promise<string> {
 }
 
 
-export function getAccessIfValid(): string {
+export function getAccessIfValid(account: GoogleAccount): string {
+	if (!account) return;
+
 	//Check if the token exists
-	if (!getAccessToken() || getAccessToken() == "") return;
+	if (!getAccessToken(account.id) || getAccessToken(account.id) == "") return;
 
 	//Check if Expiration time is not set or default 0
-	if (!getExpirationTime()) return;
+	if (!getExpirationTime(account.id)) return;
 
 	//Check if Expiration time is set to text
-	if (isNaN(getExpirationTime())) return
+	if (isNaN(getExpirationTime(account.id))) return
 
 	//Check if Expiration time is in the past so the token is expired
-	if (getExpirationTime() < +new Date()) return;
+	if (getExpirationTime(account.id) < +new Date()) return;
 
-	return getAccessToken();
+	return getAccessToken(account.id);
 }
 
 
-const refreshAccessToken = async (plugin: GoogleCalendarPlugin): Promise<string> => {
-	const useCustomClient = plugin.settings.useCustomClient;
-
-	// if(lastRefreshTryMoment.diff(window.moment(), "seconds") < 60){
-	// 	return;
-	// }
+const refreshAccessToken = async (account: GoogleAccount): Promise<string> => {
+	const useCustomClient = account.useCustomClient;
 
 	let refreshBody = {
 		grant_type: "refresh_token",
-		client_id: useCustomClient ? plugin.settings.googleClientId?.trim() : PUBLIC_CLIENT_ID,
-		client_secret: useCustomClient ? plugin.settings.googleClientSecret?.trim() : null,
-		refresh_token: getRefreshToken(),
+		client_id: useCustomClient ? account.clientId?.trim() : PUBLIC_CLIENT_ID,
+		client_secret: useCustomClient ? account.clientSecret?.trim() : null,
+		refresh_token: account.refreshToken,
 	};
 
 	const {json: tokenData} = await requestUrl({
 		method: 'POST',
-		url: useCustomClient ? `https://oauth2.googleapis.com/token` : `${plugin.settings.googleOAuthServer}/api/google/refresh`,
+		url: useCustomClient ? `https://oauth2.googleapis.com/token` : `${account.oAuthServer}/api/google/refresh`,
 		headers: {'content-type': 'application/json'},
 		body: JSON.stringify(refreshBody)
 	})
@@ -98,11 +94,73 @@ const refreshAccessToken = async (plugin: GoogleCalendarPlugin): Promise<string>
 		createNotice("Error while refreshing authentication");
 		return;
 	}
-	
-	//Save new Access token and Expiration Time
-	setAccessToken(tokenData.access_token);
-	setExpirationTime(+new Date() + tokenData.expires_in * 1000);
+
+	//Save new Access token and Expiration Time for this account
+	setAccessToken(account.id, tokenData.access_token);
+	setExpirationTime(account.id, +new Date() + tokenData.expires_in * 1000);
 	return tokenData.access_token;
+}
+
+/**
+ * Discover an account's identity (its primary calendar id == email) using a freshly
+ * obtained access token, so a newly added account can be labelled and de-duplicated.
+ */
+async function fetchAccountIdentity(accessToken: string): Promise<{ id: string, label: string }> {
+	try {
+		const res = await requestUrl({
+			method: 'GET',
+			url: `https://www.googleapis.com/calendar/v3/users/me/calendarList`,
+			headers: { 'Authorization': 'Bearer ' + accessToken },
+			throw: false,
+		});
+		const items = res.json?.items ?? [];
+		const primary = items.find((c: any) => c.primary) ?? items[0];
+		if (primary?.id) return { id: primary.id, label: primary.id };
+	} catch (e) {
+		log("Could not fetch account identity");
+	}
+	const fallback = "account-" + Date.now();
+	return { id: fallback, label: "Google Account" };
+}
+
+/**
+ * Turn a fresh OAuth token response into a connected account and store it. Uses the
+ * plugin's current client config (the "next account" settings) as the account's client.
+ */
+export async function addAccountFromTokens(
+	plugin: GoogleCalendarPlugin,
+	token: { refresh_token?: string, access_token?: string, expires_in?: number }
+): Promise<void> {
+	if (!token?.refresh_token) {
+		createNotice("Login failed: no refresh token received");
+		return;
+	}
+
+	const { id, label } = await fetchAccountIdentity(token.access_token);
+
+	const account: GoogleAccount = {
+		id,
+		label,
+		refreshToken: token.refresh_token,
+		useCustomClient: plugin.settings.useCustomClient,
+		clientId: plugin.settings.googleClientId,
+		clientSecret: plugin.settings.googleClientSecret,
+		oAuthServer: plugin.settings.googleOAuthServer,
+	};
+
+	const existing = plugin.settings.accounts.find((a) => a.id === id);
+	if (existing) {
+		Object.assign(existing, account);
+	} else {
+		plugin.settings.accounts.push(account);
+	}
+
+	setAccessToken(id, token.access_token);
+	setExpirationTime(id, +new Date() + (token.expires_in ?? 3600) * 1000);
+	await plugin.saveSettings();
+
+	new Notice("Login successful!");
+	plugin.settingsTab.display();
 }
 
 const exchangeCodeForTokenDefault = async (plugin: GoogleCalendarPlugin, state:string, verifier:string, code: string): Promise<boolean> => {
@@ -148,15 +206,15 @@ const exchangeCodeForTokenCustom = async (plugin: GoogleCalendarPlugin, state: s
  * 
  * @returns A valid access Token
  */
-export async function getGoogleAuthToken(plugin: GoogleCalendarPlugin): Promise<string> {
-	// Check if refresh token is set
-	if (!settingsAreCompleteAndLoggedIn()) return;
+export async function getGoogleAuthToken(plugin: GoogleCalendarPlugin, account: GoogleAccount): Promise<string> {
+	// Need a connected account with a refresh token
+	if (!account?.refreshToken) return;
 
-	let accessToken = getAccessIfValid();
+	let accessToken = getAccessIfValid(account);
 
 	//Check if the Access token is still valid or if it needs to be refreshed
 	if (!accessToken) {
-		accessToken = await refreshAccessToken(plugin);		
+		accessToken = await refreshAccessToken(account);
 	}
 
 	// Check if refresh of access token did non work
@@ -202,12 +260,7 @@ export async function FinishLoginGoogleMobile(code:string, state:string): Promis
 	const token = await exchangeCodeForTokenCustom(GoogleCalendarPlugin.getInstance(), state, authSession.verifier, code, true);
 
 	if(token?.refresh_token) {
-		setRefreshToken(token.refresh_token);
-		setAccessToken(token.access_token);
-		setExpirationTime(+new Date() + token.expires_in * 1000);
-
-		new Notice("Login successful!");
-		plugin.settingsTab.display();
+		await addAccountFromTokens(plugin, token);
 	}
 	authSession = {server: null, verifier: null, challenge: null, state:null};
 }
@@ -287,11 +340,6 @@ export async function LoginGoogle(): Promise<void> {
 				token = await exchangeCodeForTokenDefault(plugin, authSession.state, authSession.verifier, code);
 			}
 
-			if(token?.refresh_token) {
-				setRefreshToken(token.refresh_token);
-				setAccessToken(token.access_token);
-				setExpirationTime(+new Date() + token.expires_in * 1000);
-			}
 			log("Tokens acquired.");
 
 			res.end(
@@ -302,8 +350,10 @@ export async function LoginGoogle(): Promise<void> {
 				log("Server closed")
 			});
 
-			plugin.settingsTab.display();
-			
+			if(token?.refresh_token) {
+				await addAccountFromTokens(plugin, token);
+			}
+
 		} catch (e) {
 			log("Auth failed")
 

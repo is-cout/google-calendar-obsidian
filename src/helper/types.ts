@@ -6,14 +6,29 @@
 import type { SplitDirection, TFile } from "obsidian";
 
 
+// One connected Google account. Multiple accounts can be connected at once; each keeps
+// its own refresh token and its own OAuth client config (custom or the default proxy).
+export interface GoogleAccount {
+    id: string;            // the account's primary calendar id (its email address)
+    label: string;         // human-readable name shown in settings (the email)
+    refreshToken: string;
+    useCustomClient: boolean;
+    clientId: string;
+    clientSecret: string;
+    oAuthServer: string;   // only used when useCustomClient is false
+}
+
 export interface GoogleCalendarPluginSettings {
-    // Authentication settings
+    // Authentication settings (used as the config for the NEXT account being added)
 	useCustomClient: boolean;
     googleOAuthServer: string;
     googleClientId: string;
     googleClientSecret: string;
     googleRefreshToken: string;
-	
+
+    // Connected accounts
+    accounts: GoogleAccount[];
+
     // Notification settings
     useNotification: boolean;
 	showNotice: boolean;
@@ -61,6 +76,8 @@ export interface Template {
 }
 
 export interface GoogleCalendar {
+	// The account this calendar belongs to (set when the calendar list is fetched).
+	account?: GoogleAccount;
 	kind: "calendar#calendarListEntry";
 	etag: string;
 	id: string;
@@ -337,6 +354,8 @@ export interface CodeBlockOptions {
 	showAllDay?: boolean;
 	offset?: number;
 	size?: number;
+	// Month view only: hide the per-day event dots for a clean calendar. Defaults to shown.
+	showEventDots?: boolean;
 	// Keep this for backwards compatibility with old code blocks replacing with offset
 	dayOffset?: number;
 }

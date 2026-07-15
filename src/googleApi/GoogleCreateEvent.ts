@@ -40,7 +40,8 @@ export async function googleCreateEvent(event: GoogleEvent | any): Promise<Googl
     }
 
     let calenderId = ""
-    
+    const account = event?.parent?.account;
+
     if(event?.parent?.id){
         calenderId = event.parent.id;
         event.start.timeZone = event.parent.timeZone;
@@ -51,10 +52,10 @@ export async function googleCreateEvent(event: GoogleEvent | any): Promise<Googl
     }
 
     if(calenderId === ""){
-        throw new GoogleApiError("Could not create Google Event because no default calendar selected in Settings", null, 999, {error: "No calendar set"})    
+        throw new GoogleApiError("Could not create Google Event because no default calendar selected in Settings", null, 999, {error: "No calendar set"})
     }
 
-    const createdEvent = await callRequest(`https://www.googleapis.com/calendar/v3/calendars/${calenderId}/events?conferenceDataVersion=1`, 'POST', event)
+    const createdEvent = await callRequest(`https://www.googleapis.com/calendar/v3/calendars/${calenderId}/events?conferenceDataVersion=1`, 'POST', event, false, account)
     return createdEvent;
 }
 
