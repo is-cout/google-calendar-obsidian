@@ -329,7 +329,13 @@
                 class="gcal-toggle-dots"
                 aria-label={hideEventDots ? "Show event dots" : "Hide event dots"}
                 on:click={toggleEventDots}
-            >{hideEventDots ? "Show dots" : "Hide dots"}</button>
+            >
+                {#if hideEventDots}
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 8 10 8a9.74 9.74 0 0 0 5.39-1.61"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+                {:else}
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8-10-8-10-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+                {/if}
+            </button>
             <div style="--daily-dot-color: {plugin.settings.dailyNoteDotColor}" class:gcal-hide-event-dots={hideEventDots}>
                 <CalendarBase
                     showWeekNums={plugin.settings.useWeeklyNotes}
@@ -367,6 +373,36 @@
 {/if}
 
 <style>
+    /* Anchor the icon toggle inside the calendar's nav row */
+    .gcal-calendar-container {
+        position: relative;
+    }
 
+    /* Icon-only toggle placed in the free space left of the month nav arrows */
+    .gcal-toggle-dots {
+        position: absolute;
+        top: 0.7em;
+        right: 96px;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px;
+        height: 24px;
+        width: 24px;
+        background: transparent;
+        box-shadow: none;
+        color: var(--text-muted);
+        cursor: pointer;
+    }
+
+    .gcal-toggle-dots:hover {
+        color: var(--text-normal);
+    }
+
+    /* Vertically center the "today" reset button with the month nav arrows */
+    .gcal-calendar-container :global(.right-nav) {
+        align-items: center;
+    }
 </style>
 

@@ -104,7 +104,7 @@
 {/if}
 <div style="padding-left: 10px;">
 	{#if codeBlockOptions.navigation && date}
-		<DayNavigation bind:dateOffset bind:date bind:startDate />
+		<DayNavigation bind:dateOffset bind:date bind:startDate {codeBlockOptions} />
 	{/if}
 
 	<div

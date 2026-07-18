@@ -356,6 +356,8 @@ export interface CodeBlockOptions {
 	size?: number;
 	// Month view only: hide the per-day event dots for a clean calendar. Defaults to shown.
 	showEventDots?: boolean;
+	// Day/schedule/timeline: collapse the big date header to just the nav arrows.
+	compactHeader?: boolean;
 	// Keep this for backwards compatibility with old code blocks replacing with offset
 	dayOffset?: number;
 }

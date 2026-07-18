@@ -17,16 +17,23 @@ Format: `YYYY-MM-DD — description. Why. Files touched.`
   `src/googleApi/GoogleListEvents.ts`, `src/googleApi/Google{Create,Update,Delete,Get}Event.ts`,
   `src/googleApi/GoogleSwitchCalendar.ts`, `src/view/GoogleCalendarSettingTab.ts`,
   `src/GoogleCalendarPlugin.ts`.
-- 2026-07-15 — Month view: add a "Hide dots / Show dots" toggle button that hides the
-  per-day event dots for a clean calendar (daily-note dots stay). Persists per month view.
-  Why: users who want a plain calendar without the blue event markers. Files:
+- 2026-07-15 — Month view: an icon-only toggle in the calendar's nav row hides the per-day
+  event dots for a clean calendar (daily-note dots stay); persists per month view. Also
+  vertically centers the "today" reset button with the nav arrows. Why: users who want a
+  plain calendar without the blue event markers. Files:
   `src/svelte/views/MonthView.svelte`, `src/helper/types.ts`, `styles.css`.
 - 2026-07-15 — Schedule view redesign: show only the selected day (no scroll into other
-  days), drop the redundant day circle that duplicated the header date, render each event
-  as a card whose height signals its duration, and lay overlapping events side by side.
-  Why: the old view repeated the date and listed events as flat rows with no sense of
-  duration or overlap. Files: `src/svelte/views/ScheduleView.svelte`,
+  days), drop the redundant day circle that duplicated the header date, and render events
+  as cards whose height signals their duration. Overlapping events are grouped — when one
+  event time-contains others they are nested inside its box, positioned by start time;
+  otherwise they sit side by side. Why: the old view repeated the date and listed events
+  as flat rows with no sense of duration or overlap. Files:
+  `src/svelte/views/ScheduleView.svelte`,
   `src/svelte/components/ViewSettings.svelte` (Timespan no longer shown for schedule).
+- 2026-07-15 — Day header: a three-dots button on the schedule and timeline views collapses
+  the big date header down to just the `<` / today / `>` nav; persisted per view. Files:
+  `src/svelte/components/DayNavigation.svelte`, `src/svelte/views/ScheduleView.svelte`,
+  `src/svelte/views/TimeLineView.svelte`, `src/helper/types.ts`.
 
 ## Tooling / setup (non-versioned)
 

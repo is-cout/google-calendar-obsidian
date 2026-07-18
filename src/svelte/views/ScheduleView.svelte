@@ -39,13 +39,68 @@
     const durationMinutes = (event: GoogleEvent): number =>
         Math.max(1, eventEnd(event).diff(eventStart(event), "minutes"));
 
-    // Block height signals duration: ~0.8px per minute, clamped so short events stay
-    // tappable and long events don't dominate the view.
-    const blockHeight = (event: GoogleEvent): number =>
-        Math.min(240, Math.max(48, Math.round(durationMinutes(event) * 0.8)));
-
     const isPast = (event: GoogleEvent): boolean =>
         eventEnd(event).isBefore(window.moment(), "minute");
+
+    // Layout scale: block height signals duration. Minimums keep text readable.
+    const SCALE = 0.9;       // px per minute
+    const MIN_BLOCK = 60;    // top-level block / container
+    const MIN_CHILD = 38;    // nested child block
+
+    // Greedy column assignment for events that overlap each other in time.
+    const assignColumns = (list: GoogleEvent[]): { placed: { event: GoogleEvent, col: number }[], ncols: number } => {
+        const colEnds: moment.Moment[] = [];
+        const placed = list.map((event) => {
+            const start = eventStart(event);
+            let col = colEnds.findIndex((end) => !start.isBefore(end));
+            if (col === -1) {
+                col = colEnds.length;
+                colEnds.push(eventEnd(event));
+            } else {
+                colEnds[col] = eventEnd(event);
+            }
+            return { event, col };
+        });
+        return { placed, ncols: colEnds.length };
+    }
+
+    // If one event in the cluster time-contains all the others, nest them inside its box.
+    // Otherwise fall back to equal-height side-by-side columns.
+    const buildClusterLayout = (cluster: GoogleEvent[]) => {
+        if (cluster.length === 1) {
+            const event = cluster[0];
+            return { type: "single", event, height: Math.max(MIN_BLOCK, durationMinutes(event) * SCALE) };
+        }
+
+        let container = cluster[0];
+        for (const event of cluster) {
+            if (durationMinutes(event) > durationMinutes(container)) container = event;
+        }
+        const cStart = eventStart(container);
+        const cEnd = eventEnd(container);
+        const children = cluster.filter((e) => e !== container);
+        const allInside = children.every((e) => !eventStart(e).isBefore(cStart) && !eventEnd(e).isAfter(cEnd));
+
+        if (allInside) {
+            const cSpan = durationMinutes(container);
+            const height = Math.max(MIN_BLOCK, cSpan * SCALE);
+            const sorted = [...children].sort((a, b) => eventStart(a).valueOf() - eventStart(b).valueOf());
+            const { placed, ncols } = assignColumns(sorted);
+            const kids = placed.map(({ event, col }) => ({
+                event,
+                top: (eventStart(event).diff(cStart, "minutes") / cSpan) * height,
+                height: Math.max(MIN_CHILD, (durationMinutes(event) / cSpan) * height),
+                leftPct: (col / ncols) * 100,
+                widthPct: 100 / ncols,
+            }));
+            return { type: "container", container, height, kids };
+        }
+
+        const height = Math.max(MIN_BLOCK, Math.max(...cluster.map(durationMinutes)) * SCALE);
+        return { type: "columns", events: cluster, height };
+    }
+
+    $: laidOutClusters = clusters.map(buildClusterLayout);
 
     // Group timed events into clusters where each event overlaps the running span,
     // so overlapping events can be laid out next to each other.
@@ -173,7 +228,7 @@
 
     <div class ="gcal-schedule-container">
         {#if codeBlockOptions.navigation && date}
-            <DayNavigation bind:dateOffset bind:date bind:startDate />
+            <DayNavigation bind:dateOffset bind:date bind:startDate {codeBlockOptions} />
         {:else if date}
             <div class="gcal-schedule-static-header">
                 <h3 class="gcal-schedule-static-weekday">{date.format("dddd")}</h3>
@@ -197,25 +252,76 @@
             {/if}
 
             <div class="gcal-schedule-timeline">
-                {#each clusters as cluster}
-                    <div class="gcal-schedule-cluster">
-                        {#each cluster as event}
-                            <div
-                                class="gcal-schedule-block {event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(event) ? "gcal-schedule-pastEvent" : ""}"
-                                style:height="{blockHeight(event)}px"
-                                style:border-left-color="{getColorFromEvent(event)}"
-                                on:click="{(e) => goToEvent(event, e)}"
-                                on:keypress="{(e) => goToEvent(event, e)}"
-                            >
+                {#each laidOutClusters as cl}
+                    {#if cl.type === "single"}
+                        <div
+                            class="gcal-schedule-block {cl.event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(cl.event) ? "gcal-schedule-pastEvent" : ""}"
+                            style:height="{cl.height}px"
+                            style:border-left-color="{getColorFromEvent(cl.event)}"
+                            on:click="{(e) => goToEvent(cl.event, e)}"
+                            on:keypress="{(e) => goToEvent(cl.event, e)}"
+                        >
+                            <span
+                                class="gcal-schedule-block-time"
+                                on:click|stopPropagation={switchHourDisplay}
+                                on:keypress|stopPropagation={switchHourDisplay}
+                            >{getDateString(cl.event, hourFormat)}</span>
+                            <span class="gcal-schedule-block-title">{cl.event.summary}</span>
+                        </div>
+                    {:else if cl.type === "container"}
+                        <div
+                            class="gcal-schedule-block gcal-schedule-container-block {cl.container.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(cl.container) ? "gcal-schedule-pastEvent" : ""}"
+                            style:height="{cl.height}px"
+                            style:border-left-color="{getColorFromEvent(cl.container)}"
+                            on:click="{(e) => goToEvent(cl.container, e)}"
+                            on:keypress="{(e) => goToEvent(cl.container, e)}"
+                        >
+                            <div class="gcal-schedule-container-label">
                                 <span
                                     class="gcal-schedule-block-time"
                                     on:click|stopPropagation={switchHourDisplay}
                                     on:keypress|stopPropagation={switchHourDisplay}
-                                >{getDateString(event, hourFormat)}</span>
-                                <span class="gcal-schedule-block-title">{event.summary}</span>
+                                >{getDateString(cl.container, hourFormat)}</span>
+                                <span class="gcal-schedule-block-title">{cl.container.summary}</span>
                             </div>
-                        {/each}
-                    </div>
+                            <div class="gcal-schedule-nested">
+                                {#each cl.kids as kid}
+                                    <div
+                                        class="gcal-schedule-block gcal-schedule-child-block {kid.event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(kid.event) ? "gcal-schedule-pastEvent" : ""}"
+                                        style:top="{kid.top}px"
+                                        style:height="{kid.height}px"
+                                        style:left="{kid.leftPct}%"
+                                        style:width="calc({kid.widthPct}% - 4px)"
+                                        style:border-left-color="{getColorFromEvent(kid.event)}"
+                                        on:click|stopPropagation="{(e) => goToEvent(kid.event, e)}"
+                                        on:keypress|stopPropagation="{(e) => goToEvent(kid.event, e)}"
+                                    >
+                                        <span class="gcal-schedule-block-time">{getDateString(kid.event, hourFormat)}</span>
+                                        <span class="gcal-schedule-block-title">{kid.event.summary}</span>
+                                    </div>
+                                {/each}
+                            </div>
+                        </div>
+                    {:else}
+                        <div class="gcal-schedule-cluster">
+                            {#each cl.events as event}
+                                <div
+                                    class="gcal-schedule-block {event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(event) ? "gcal-schedule-pastEvent" : ""}"
+                                    style:height="{cl.height}px"
+                                    style:border-left-color="{getColorFromEvent(event)}"
+                                    on:click="{(e) => goToEvent(event, e)}"
+                                    on:keypress="{(e) => goToEvent(event, e)}"
+                                >
+                                    <span
+                                        class="gcal-schedule-block-time"
+                                        on:click|stopPropagation={switchHourDisplay}
+                                        on:keypress|stopPropagation={switchHourDisplay}
+                                    >{getDateString(event, hourFormat)}</span>
+                                    <span class="gcal-schedule-block-title">{event.summary}</span>
+                                </div>
+                            {/each}
+                        </div>
+                    {/if}
                 {/each}
             </div>
         {/if}
@@ -306,6 +412,37 @@
         font-weight: 500;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    /* A container block holds nested children on its right, its own label on the left */
+    .gcal-schedule-container-block {
+        flex-direction: row;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .gcal-schedule-container-label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 0 0 40%;
+        min-width: 90px;
+        overflow: hidden;
+    }
+
+    .gcal-schedule-nested {
+        position: relative;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    /* Nested children are absolutely positioned by their start time within the container */
+    .gcal-schedule-child-block {
+        position: absolute;
+        box-sizing: border-box;
+        gap: 2px;
+        padding: 4px 8px;
+        font-size: 0.85em;
     }
 
     .gcal-schedule-recurring .gcal-schedule-block-time::after {
