@@ -43,9 +43,13 @@
         eventEnd(event).isBefore(window.moment(), "minute");
 
     // Layout scale: block height signals duration. Minimums keep text readable.
-    const SCALE = 0.9;       // px per minute
-    const MIN_BLOCK = 60;    // top-level block / container
-    const MIN_CHILD = 38;    // nested child block
+    const SCALE = 1.0;       // px per minute
+    const MIN_BLOCK = 64;    // top-level block / container
+    const MIN_CHILD = 50;    // nested child block
+
+    // Day the currently-shown events belong to, so an auto-refresh that briefly returns
+    // an empty list (e.g. during a token refresh) doesn't blank the view.
+    let loadedDayKey = "";
 
     // Greedy column assignment for events that overlap each other in time.
     const assignColumns = (list: GoogleEvent[]): { placed: { event: GoogleEvent, col: number }[], ncols: number } => {
@@ -122,12 +126,15 @@
         return result;
     }
 
-    const getEvents = async(date:moment.Moment) => {
+    const getEvents = async(date:moment.Moment, isRefresh = false) => {
         if(loading) return;
         if(!date?.isValid()){
             loading = false;
             return;
         }
+
+        const dayKey = date.format("YYYY-MM-DD");
+        const sameDay = dayKey === loadedDayKey;
 
         hourFormat = plugin.settings.timelineHourFormat;
         let newEvents = await listEvents({
@@ -150,9 +157,17 @@
         //only reload if events change
         if(JSON.stringify(newEvents) == JSON.stringify(events)){
             loading = false;
+            loadedDayKey = dayKey;
+            return;
+        }
+        // On the same day, ignore a transient empty result (likely a failed/again-refreshing
+        // request) so the events don't flash away and come back.
+        if(sameDay && isRefresh && newEvents.length === 0 && events.length > 0){
+            loading = false;
             return;
         }
         events = newEvents;
+        loadedDayKey = dayKey;
     }
 
     const getDateText = ( date:moment.Moment, hourFormat: number):string => {
@@ -205,7 +220,7 @@
         if(interval){
             clearInterval(interval);
         }
-        interval = setInterval(() => getEvents(date), 5000);
+        interval = setInterval(() => getEvents(date, true), 5000);
         getEvents(date);
     }
 

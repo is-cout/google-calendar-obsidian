@@ -378,18 +378,19 @@
         position: relative;
     }
 
-    /* Icon-only toggle placed in the free space left of the month nav arrows */
+    /* Icon-only toggle placed in the free space left of the month nav arrows,
+       vertically centered on the nav row (which starts 0.6em from the top). */
     .gcal-toggle-dots {
         position: absolute;
-        top: 0.7em;
-        right: 96px;
+        top: 0.6em;
+        right: 130px;
         z-index: 2;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 4px;
-        height: 24px;
-        width: 24px;
+        height: 1.5em;
+        width: 28px;
+        padding: 0;
         background: transparent;
         box-shadow: none;
         color: var(--text-muted);
@@ -403,6 +404,17 @@
     /* Vertically center the "today" reset button with the month nav arrows */
     .gcal-calendar-container :global(.right-nav) {
         align-items: center;
+    }
+
+    /* Show the reset button label in English ("Today") instead of the localized word */
+    .gcal-calendar-container :global(.reset-button) {
+        font-size: 0 !important;
+    }
+
+    .gcal-calendar-container :global(.reset-button)::after {
+        content: "Today";
+        font-size: 0.7rem;
+        letter-spacing: 1px;
     }
 </style>
 

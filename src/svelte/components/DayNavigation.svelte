@@ -43,50 +43,94 @@
 
 </script>
 
-<div class="gcal-title-container">
-    <div class="gcal-date-container">
-        {#if !compact}
+<div class="gcal-day-nav">
+    {#if !compact}
+        <div class="gcal-date-container">
             <h3 class="gcal-date-dayofweek">{date.format("dddd")}</h3>
             <h1 class="gcal-date-main">{date.format("MMMM DD, YYYY")}</h1>
-        {/if}
-        <div class="gcal-nav-container">
-            <button class="gcal-nav-button gcal-kebab-button" aria-label={compact ? "Show date header" : "Hide date header"} on:click={toggleCompact}>
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
-            </button>
-            {#if !compact}
-                <button class="gcal-nav-button" aria-label="Back 1 week" on:click={minusOneWeek}>&lt;&lt;</button>
-            {/if}
-            <button class="gcal-nav-button" aria-label="Back 1 day"     on:click={minusOneDay}>&lt;</button>
-            <button class="gcal-nav-button" aria-label="Jump to today"  on:click={backToday}>{window.moment().isSame(startDate, "day") ? "Today" : "Start"}</button>
-            <button class="gcal-nav-button" aria-label="Forward 1 day"  on:click={plusOneDay}>&gt;</button>
-            {#if !compact}
-                <button class="gcal-nav-button" aria-label="Forward 1 week" on:click={plusOneWeek}>&gt;&gt;</button>
-                <button class="gcal-new-event-button" aria-label="Create Event" on:click={openNewEventDialog}>+</button>
-            {/if}
         </div>
+    {/if}
+    <div class="gcal-right-nav">
+        <button class="gcal-icon-btn" aria-label={compact ? "Show date header" : "Hide date header"} on:click={toggleCompact}>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        {#if !compact}
+            <button class="gcal-icon-btn" aria-label="Back 1 week" on:click={minusOneWeek}>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 6 11 12 17 18"/><polyline points="11 6 5 12 11 18"/></svg>
+            </button>
+        {/if}
+        <button class="gcal-icon-btn" aria-label="Back 1 day" on:click={minusOneDay}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg>
+        </button>
+        <button class="gcal-today-btn" aria-label="Jump to today" on:click={backToday}>{window.moment().isSame(startDate, "day") ? "Today" : "Start"}</button>
+        <button class="gcal-icon-btn" aria-label="Forward 1 day" on:click={plusOneDay}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </button>
+        {#if !compact}
+            <button class="gcal-icon-btn" aria-label="Forward 1 week" on:click={plusOneWeek}>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 6 13 12 7 18"/><polyline points="13 6 19 12 13 18"/></svg>
+            </button>
+            <button class="gcal-icon-btn" aria-label="Create Event" on:click={openNewEventDialog}>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+        {/if}
     </div>
 </div>
 
 
 <style>
-    .gcal-date-container{
-        margin-bottom: 10px;
-    }
-
-    .gcal-date-dayofweek, .gcal-date-main {
-        margin: 0px;
-    }
-
-    .gcal-nav-container {
-        margin-bottom: 1em;
+    .gcal-day-nav {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 8px;
+        margin-bottom: 1em;
+        min-height: 2.2em;
     }
 
-    .gcal-kebab-button {
+    .gcal-date-container {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .gcal-date-dayofweek {
+        margin: 0;
+        text-transform: capitalize;
+        color: var(--text-muted);
+        font-weight: 500;
+    }
+
+    .gcal-date-main {
+        margin: 0;
+    }
+
+    .gcal-right-nav {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        margin-left: auto;
+    }
+
+    .gcal-icon-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        height: 28px;
+        width: 28px;
+        padding: 0;
+        color: var(--text-muted);
+        cursor: pointer;
+    }
+
+    .gcal-icon-btn:hover {
+        color: var(--text-normal);
+    }
+
+    .gcal-today-btn {
+        cursor: pointer;
+        font-size: 0.75em;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        padding: 4px 8px;
     }
 </style>

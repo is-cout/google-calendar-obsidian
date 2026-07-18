@@ -30,10 +30,17 @@ Format: `YYYY-MM-DD — description. Why. Files touched.`
   as flat rows with no sense of duration or overlap. Files:
   `src/svelte/views/ScheduleView.svelte`,
   `src/svelte/components/ViewSettings.svelte` (Timespan no longer shown for schedule).
-- 2026-07-15 — Day header: a three-dots button on the schedule and timeline views collapses
-  the big date header down to just the `<` / today / `>` nav; persisted per view. Files:
-  `src/svelte/components/DayNavigation.svelte`, `src/svelte/views/ScheduleView.svelte`,
-  `src/svelte/views/TimeLineView.svelte`, `src/helper/types.ts`.
+- 2026-07-15 — Day header (schedule + timeline): reworked to mirror the month view — the
+  date sits on the left with an icon nav (chevron arrows, English "Today", new-event) pushed
+  to the right, and a three-dots button collapses the date away leaving just the right-aligned
+  nav; persisted per view. Files: `src/svelte/components/DayNavigation.svelte`,
+  `src/svelte/views/ScheduleView.svelte`, `src/svelte/views/TimeLineView.svelte`,
+  `src/helper/types.ts`.
+- 2026-07-15 — Schedule view fixes: taller minimum block/child heights so text no longer
+  clips, and an anti-flicker guard so an auto-refresh returning a transient empty list no
+  longer blanks the day's events. Month view: English "Today" label and better spacing/
+  centering of the dots toggle. Files: `src/svelte/views/ScheduleView.svelte`,
+  `src/svelte/views/MonthView.svelte`.
 
 ## Tooling / setup (non-versioned)
 
