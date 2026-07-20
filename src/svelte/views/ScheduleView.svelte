@@ -1,7 +1,8 @@
 <script lang="ts">
     import type { CodeBlockOptions, GoogleEvent } from "../../helper/types";
 
-    import { googleClearCachedEvents, listEvents } from "../../googleApi/GoogleListEvents";
+    import { googleClearCachedEvents, googleListEvents } from "../../googleApi/GoogleListEvents";
+    import { logError } from "../../helper/log";
     import { getColorFromEvent } from "../../googleApi/GoogleColors";
     import { EventDetailsModal } from "../../modal/EventDetailsModal";
     import { onDestroy } from "svelte";
@@ -20,6 +21,9 @@
     let date;
     let loading = false;
     let events:GoogleEvent[] = [];
+    // Day currently rendered ("YYYY-MM-DD"). Only a change of this key lets an empty
+    // fetch result blank the view; same-day fetches never do.
+    let loadedDayKey = "";
     let interval;
     let hourFormat = plugin.settings.timelineHourFormat;
 
@@ -68,10 +72,6 @@
     const MIN_CHILD = 34;      // readable height a nested child should reach
     const MAX_SCALE = 3;       // cap on stretching a container to fit its children
     const MAX_CONTAINER = 560; // cap on total container height
-
-    // Day the currently-shown events belong to, so an auto-refresh that briefly returns
-    // an empty list (e.g. during a token refresh) doesn't blank the view.
-    let loadedDayKey = "";
 
     // Greedy column assignment for events that overlap each other in time.
     const assignColumns = (list: GoogleEvent[]): { placed: { event: GoogleEvent, col: number }[], ncols: number } => {
@@ -163,49 +163,67 @@
         return result;
     }
 
-    const getEvents = async(date:moment.Moment, isRefresh = false) => {
+    const getEvents = async(date:moment.Moment) => {
         if(loading) return;
         if(!date?.isValid()){
-            loading = false;
             return;
         }
 
-        const dayKey = date.format("YYYY-MM-DD");
-        const sameDay = dayKey === loadedDayKey;
-        now = window.moment();
+        loading = true;
+        try {
+            const dayKey = date.format("YYYY-MM-DD");
+            // Same-day re-fetches (the 5s poll, a settings toggle that re-runs the reactive
+            // block, an edit callback) must never blank the view. Only navigating to a
+            // different day is allowed to show an empty result. This is what keeps events
+            // from flashing away: an empty response is only trusted on a day change.
+            const dayChanged = dayKey !== loadedDayKey;
+            now = window.moment();
 
-        hourFormat = plugin.settings.timelineHourFormat;
-        let newEvents = await listEvents({
-            startDate:date,
-            endDate:date,
-            include: codeBlockOptions.include,
-            exclude: codeBlockOptions.exclude
-        });
+            hourFormat = plugin.settings.timelineHourFormat;
 
-        newEvents = newEvents.filter(event => {
-            if(event.start.date) return codeBlockOptions.showAllDay;
-            const startMoment = window.moment(event.start.dateTime)
-            const endMoment = window.moment(event.end.dateTime);
-            const startHour = startMoment.minutes() > 0 ? startMoment.hour() + 1 : startMoment.hour();
-            const endHour   = endMoment.minutes()   > 0 ? endMoment.hour()   + 1 : endMoment.hour();
-            return (startHour >= codeBlockOptions.hourRange[0] && startHour <= codeBlockOptions.hourRange[1]) ||
-                   (endHour >= codeBlockOptions.hourRange[0] && endHour <= codeBlockOptions.hourRange[1]) ||
-                    (startHour < codeBlockOptions.hourRange[0] && endHour > codeBlockOptions.hourRange[1])
-        })
-        //only reload if events change
-        if(JSON.stringify(newEvents) == JSON.stringify(events)){
-            loading = false;
+            // Fetch via googleListEvents (which throws) rather than listEvents (which swallows
+            // errors and returns []). A failed fetch — 401 during a token refresh, a network
+            // blip, one calendar erroring — keeps the events already on screen instead of
+            // blanking the view.
+            let newEvents: GoogleEvent[];
+            try {
+                newEvents = await googleListEvents({
+                    startDate:date,
+                    endDate:date,
+                    include: codeBlockOptions.include,
+                    exclude: codeBlockOptions.exclude
+                });
+            } catch (err) {
+                logError(err);
+                return;
+            }
+
+            newEvents = newEvents.filter(event => {
+                if(event.start.date) return codeBlockOptions.showAllDay;
+                const startMoment = window.moment(event.start.dateTime)
+                const endMoment = window.moment(event.end.dateTime);
+                const startHour = startMoment.minutes() > 0 ? startMoment.hour() + 1 : startMoment.hour();
+                const endHour   = endMoment.minutes()   > 0 ? endMoment.hour()   + 1 : endMoment.hour();
+                return (startHour >= codeBlockOptions.hourRange[0] && startHour <= codeBlockOptions.hourRange[1]) ||
+                       (endHour >= codeBlockOptions.hourRange[0] && endHour <= codeBlockOptions.hourRange[1]) ||
+                        (startHour < codeBlockOptions.hourRange[0] && endHour > codeBlockOptions.hourRange[1])
+            })
+            //only reload if events change
+            if(JSON.stringify(newEvents) == JSON.stringify(events)){
+                loadedDayKey = dayKey;
+                return;
+            }
+            // On the same day, a transient empty result (token refresh in flight, Google's
+            // list API responding empty due to eventual consistency, a throttled timer
+            // firing in a burst on window refocus) is ignored while events are shown.
+            if(!dayChanged && newEvents.length === 0 && events.length > 0){
+                return;
+            }
+            events = newEvents;
             loadedDayKey = dayKey;
-            return;
-        }
-        // On the same day, ignore a transient empty result (likely a failed/again-refreshing
-        // request) so the events don't flash away and come back.
-        if(sameDay && isRefresh && newEvents.length === 0 && events.length > 0){
+        } finally {
             loading = false;
-            return;
         }
-        events = newEvents;
-        loadedDayKey = dayKey;
     }
 
     const getDateText = ( date:moment.Moment, hourFormat: number):string => {
@@ -258,7 +276,7 @@
         if(interval){
             clearInterval(interval);
         }
-        interval = setInterval(() => getEvents(date, true), 5000);
+        interval = setInterval(() => getEvents(date), 5000);
         getEvents(date);
     }
 

@@ -4,8 +4,26 @@ This fork's running log of what diverged from the upstream
 [obsidian-google-calendar](https://github.com/YukiGasai/obsidian-google-calendar).
 Format: `YYYY-MM-DD — description. Why. Files touched.`
 
-## 1.11.0
+## 1.11.1
 
+- 2026-07-20 — Fix schedule view events flashing away and reappearing on auto-refresh
+  (and, transiently, vanishing entirely). Root cause: `listEvents` returns `[]` for both a
+  genuinely empty day and a *failed* fetch (401 during a token refresh, a network blip, one
+  calendar erroring), so the 5s auto-refresh could momentarily render an empty list on a
+  transient failure and then restore the events on the next successful poll. The view now
+  fetches via `googleListEvents` (which throws) inside a try/catch, so a failed fetch keeps
+  the events already on screen and only a successful fetch replaces the list (a real empty
+  day still shows "No events"). Also wraps the fetch in try/finally so `loading` can never
+  get stuck `true` and permanently block refreshes. Additionally, a *successful* fetch can
+  still return `[]` transiently (Google's list API occasionally responds empty right after
+  a token refresh / due to eventual consistency), and when the Obsidian window is unfocused
+  the Electron refresh timer is throttled and fires in a burst on refocus — several empty
+  results can land at once. Unlike the timeline view (which draws events over a static
+  hour grid, so a momentary empty is invisible), the schedule view swaps its whole body to
+  a "No events" message, making any empty blip a visible flash. The view now trusts an
+  empty result only on an actual day change: any same-day re-fetch — the 5s poll, a
+  settings toggle re-running the reactive block, or an edit callback — never blanks a
+  populated list, tracked via a `loadedDayKey`. Files: `src/svelte/views/ScheduleView.svelte`.
 - 2026-07-15 — Multiple connected accounts. Settings now manage a list of accounts
   (add/remove), each with its own refresh token and OAuth client config; calendars are
   fetched from every account and tagged with their owner so event reads/writes use the
