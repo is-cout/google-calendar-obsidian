@@ -61,6 +61,12 @@ Format: `YYYY-MM-DD — description. Why. Files touched.`
   `src/svelte/views/ScheduleView.svelte`, `src/svelte/components/DayNavigation.svelte`,
   `src/helper/types.ts`, `styles.css`.
 
+- 2026-07-15 — Revert the month view's nav to the small icon-only dots toggle relocated into
+  obsidian-calendar-ui's own nav row, undoing the full custom nav rebuild from the previous
+  change (it looked worse in practice). Schedule/timeline nav, the hide-past-events toggle,
+  and the nested-event height fixes are unaffected. Files: `src/svelte/views/MonthView.svelte`,
+  `styles.css`.
+
 ## Tooling / setup (non-versioned)
 
 - 2026-07-15 — Build now copies `main.js`/`manifest.json`/`styles.css` into the vault

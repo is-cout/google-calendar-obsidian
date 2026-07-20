@@ -46,7 +46,7 @@
 	display: none !important;
 }
 
-/* ---- Shared view nav bar (month, schedule, timeline) ---- */
+/* ---- Shared day nav bar (schedule, timeline) ---- */
 
 .gcal-day-nav {
 	display: flex;
@@ -68,13 +68,8 @@
 	font-weight: 500;
 }
 
-.gcal-date-main,
-.gcal-nav-title {
+.gcal-date-main {
 	margin: 0;
-}
-
-.gcal-nav-title .gcal-nav-title-accent {
-	color: var(--interactive-accent);
 }
 
 .gcal-right-nav {

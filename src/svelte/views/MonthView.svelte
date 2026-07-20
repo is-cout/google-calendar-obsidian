@@ -31,14 +31,26 @@
     let today = window.moment();
     let plugin = GoogleCalendarPlugin.getInstance();
 
-    // obsidian-calendar-ui renders its own nav row, but it looks slightly different from the
-    // schedule/timeline nav. It is hidden (see styles below) and replaced by the shared nav
-    // markup so every view's controls look identical.
-    const prevMonth = () => displayedMonth = displayedMonth.clone().subtract(1, "month");
-    const nextMonth = () => displayedMonth = displayedMonth.clone().add(1, "month");
-    const prevYear = () => displayedMonth = displayedMonth.clone().subtract(1, "year");
-    const nextYear = () => displayedMonth = displayedMonth.clone().add(1, "year");
-    const resetMonth = () => displayedMonth = window.moment();
+    // The calendar's nav row is rendered by obsidian-calendar-ui, so the dots toggle is
+    // relocated into it after mount. That way it sits in the same flex row as the arrows
+    // and the "today" button and centers vertically without magic offsets.
+    const moveIntoNav = (node: HTMLElement) => {
+        let frame: number;
+        const tryMove = (attempts = 0) => {
+            const nav = node.closest(".gcal-calendar-container")?.querySelector(".right-nav");
+            if (nav) {
+                nav.insertBefore(node, nav.firstChild);
+                return;
+            }
+            if (attempts < 60) frame = requestAnimationFrame(() => tryMove(attempts + 1));
+        };
+        tryMove();
+        return {
+            destroy() {
+                if (frame) cancelAnimationFrame(frame);
+            },
+        };
+    };
 
     // Event dots are shown unless explicitly disabled; toggle persists per month view.
     $: hideEventDots = codeBlockOptions.showEventDots === false;
@@ -330,44 +342,22 @@
     <ViewSettings bind:codeBlockOptions bind:showSettings/>
 {/if}
 {#if !codeBlockOptions.width || !codeBlockOptions.height}
-    <div class="gcal-calendar-container gcal-custom-nav">
+    <div class="gcal-calendar-container">
         {#if loading}
             <p>Loading...</p>
         {:else}
-            {#if displayedMonth}
-                <div class="gcal-day-nav">
-                    <h2 class="gcal-nav-title">
-                        <span class="gcal-nav-month">{displayedMonth.format("MMM")}</span>
-                        <span class="gcal-nav-title-accent">{displayedMonth.format("YYYY")}</span>
-                    </h2>
-                    <div class="gcal-right-nav">
-                        <button
-                            class="gcal-icon-btn"
-                            aria-label={hideEventDots ? "Show event dots" : "Hide event dots"}
-                            on:click={toggleEventDots}
-                        >
-                            {#if hideEventDots}
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 8 10 8a9.74 9.74 0 0 0 5.39-1.61"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
-                            {:else}
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8-10-8-10-8Z"/><circle cx="12" cy="12" r="3"/></svg>
-                            {/if}
-                        </button>
-                        <button class="gcal-icon-btn" aria-label="Previous year" on:click={prevYear}>
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 6 11 12 17 18"/><polyline points="11 6 5 12 11 18"/></svg>
-                        </button>
-                        <button class="gcal-icon-btn" aria-label="Previous month" on:click={prevMonth}>
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"/></svg>
-                        </button>
-                        <button class="gcal-today-btn" aria-label="Jump to today" on:click={resetMonth}>Today</button>
-                        <button class="gcal-icon-btn" aria-label="Next month" on:click={nextMonth}>
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
-                        </button>
-                        <button class="gcal-icon-btn" aria-label="Next year" on:click={nextYear}>
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 6 13 12 7 18"/><polyline points="13 6 19 12 13 18"/></svg>
-                        </button>
-                    </div>
-                </div>
-            {/if}
+            <button
+                class="gcal-toggle-dots"
+                use:moveIntoNav
+                aria-label={hideEventDots ? "Show event dots" : "Hide event dots"}
+                on:click={toggleEventDots}
+            >
+                {#if hideEventDots}
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 8 10 8a9.74 9.74 0 0 0 5.39-1.61"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+                {:else}
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8-10-8-10-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+                {/if}
+            </button>
             <div style="--daily-dot-color: {plugin.settings.dailyNoteDotColor}" class:gcal-hide-event-dots={hideEventDots}>
                 <CalendarBase
                     showWeekNums={plugin.settings.useWeeklyNotes}
@@ -405,14 +395,53 @@
 {/if}
 
 <style>
-    /* Replaced by the shared nav bar above; only where we render our own */
-    .gcal-custom-nav :global(.nav) {
-        display: none;
+    /* Anchor the icon toggle inside the calendar's nav row */
+    .gcal-calendar-container {
+        position: relative;
     }
 
-    .gcal-nav-month {
-        text-transform: capitalize;
-        font-weight: 500;
+    /* Icon-only toggle, relocated into the calendar's nav row by moveIntoNav */
+    .gcal-toggle-dots {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 24px;
+        width: 24px;
+        margin-right: 4px;
+        padding: 0;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        color: var(--text-muted);
+        cursor: pointer;
+    }
+
+    .gcal-toggle-dots:hover {
+        color: var(--text-normal);
+        background: transparent;
+        box-shadow: none;
+    }
+
+    /* Vertically center everything in the nav row */
+    .gcal-calendar-container :global(.right-nav) {
+        align-items: center;
+    }
+
+    /* Show the reset button label in English ("Today") instead of the localized word,
+       as a centered flex item so it lines up with the arrows */
+    .gcal-calendar-container :global(.reset-button) {
+        font-size: 0 !important;
+        display: inline-flex;
+        align-items: center;
+        height: 24px;
+        line-height: 1;
+    }
+
+    .gcal-calendar-container :global(.reset-button)::after {
+        content: "Today";
+        font-size: 0.7rem;
+        line-height: 1;
+        letter-spacing: 1px;
     }
 </style>
 
