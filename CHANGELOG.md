@@ -67,6 +67,11 @@ Format: `YYYY-MM-DD — description. Why. Files touched.`
   and the nested-event height fixes are unaffected. Files: `src/svelte/views/MonthView.svelte`,
   `styles.css`.
 
+- 2026-07-15 — Schedule/timeline nav buttons still showed Obsidian's default raised-button
+  background/box-shadow because that base styling out-specifies a plain class selector.
+  Added `!important` overrides (including `:hover`/`:focus`) so the icon nav is truly
+  background-less, matching the month view. Files: `styles.css`.
+
 ## Tooling / setup (non-versioned)
 
 - 2026-07-15 — Build now copies `main.js`/`manifest.json`/`styles.css` into the vault

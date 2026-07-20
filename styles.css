@@ -81,9 +81,9 @@
 
 .gcal-icon-btn,
 .gcal-today-btn {
-	background: transparent;
-	border: none;
-	box-shadow: none;
+	background: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
 	color: var(--text-muted);
 	cursor: pointer;
 }
@@ -98,10 +98,14 @@
 }
 
 .gcal-icon-btn:hover,
-.gcal-today-btn:hover {
+.gcal-icon-btn:focus,
+.gcal-icon-btn:focus-visible,
+.gcal-today-btn:hover,
+.gcal-today-btn:focus,
+.gcal-today-btn:focus-visible {
 	color: var(--text-normal);
-	background: transparent;
-	box-shadow: none;
+	background: transparent !important;
+	box-shadow: none !important;
 }
 
 .gcal-icon-btn.is-active {
