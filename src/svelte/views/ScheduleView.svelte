@@ -23,11 +23,30 @@
     let interval;
     let hourFormat = plugin.settings.timelineHourFormat;
 
+    // Refreshed on every poll so the past/current split stays current over time.
+    let now = window.moment();
+
+    // Hiding past events keeps the current event at the top of the list.
+    let hidePast = codeBlockOptions.hidePastEvents === true;
+    const toggleHidePast = () => {
+        hidePast = !hidePast;
+        codeBlockOptions.hidePastEvents = hidePast;
+        const type = codeBlockOptions?.type;
+        if (type) {
+            plugin.settings.viewSettings[type] = {
+                ...plugin.settings.viewSettings[type],
+                hidePastEvents: hidePast,
+            };
+        }
+        plugin.saveSettings();
+    };
+
     // The schedule view shows a single day only, so all-day and timed events are split
     // out and timed events are clustered by overlap for side-by-side rendering.
     $: allDayEvents = events.filter(event => event.start.date);
     $: timedEvents = events
         .filter(event => !event.start.date)
+        .filter(event => !hidePast || !isPast(event, now))
         .sort((a, b) => eventStart(a).valueOf() - eventStart(b).valueOf());
     $: clusters = buildClusters(timedEvents);
 
@@ -39,13 +58,16 @@
     const durationMinutes = (event: GoogleEvent): number =>
         Math.max(1, eventEnd(event).diff(eventStart(event), "minutes"));
 
-    const isPast = (event: GoogleEvent): boolean =>
-        eventEnd(event).isBefore(window.moment(), "minute");
+    const isPast = (event: GoogleEvent, ref: moment.Moment): boolean =>
+        eventEnd(event).isBefore(ref, "minute");
 
     // Layout scale: block height signals duration. Minimums keep text readable.
-    const SCALE = 1.0;       // px per minute
-    const MIN_BLOCK = 64;    // top-level block / container
-    const MIN_CHILD = 50;    // nested child block
+    const SCALE = 1.0;         // px per minute
+    const MIN_BLOCK = 64;      // top-level block / container
+    const MAX_SINGLE = 300;    // cap for a standalone block
+    const MIN_CHILD = 34;      // readable height a nested child should reach
+    const MAX_SCALE = 3;       // cap on stretching a container to fit its children
+    const MAX_CONTAINER = 560; // cap on total container height
 
     // Day the currently-shown events belong to, so an auto-refresh that briefly returns
     // an empty list (e.g. during a token refresh) doesn't blank the view.
@@ -73,7 +95,11 @@
     const buildClusterLayout = (cluster: GoogleEvent[]) => {
         if (cluster.length === 1) {
             const event = cluster[0];
-            return { type: "single", event, height: Math.max(MIN_BLOCK, durationMinutes(event) * SCALE) };
+            return {
+                type: "single",
+                event,
+                height: Math.min(MAX_SINGLE, Math.max(MIN_BLOCK, durationMinutes(event) * SCALE)),
+            };
         }
 
         let container = cluster[0];
@@ -87,20 +113,31 @@
 
         if (allInside) {
             const cSpan = durationMinutes(container);
-            const height = Math.max(MIN_BLOCK, cSpan * SCALE);
+            // Stretch the container so even the shortest child reaches a readable height.
+            // Scaling the container (instead of clamping each child) keeps every child's
+            // height truly proportional to its duration and fills the space better.
+            const needed = Math.max(...children.map((c) => MIN_CHILD / durationMinutes(c)));
+            const scale = Math.min(Math.max(SCALE, needed), MAX_SCALE);
+            const height = Math.min(MAX_CONTAINER, Math.max(MIN_BLOCK, cSpan * scale));
+
             const sorted = [...children].sort((a, b) => eventStart(a).valueOf() - eventStart(b).valueOf());
             const { placed, ncols } = assignColumns(sorted);
-            const kids = placed.map(({ event, col }) => ({
-                event,
-                top: (eventStart(event).diff(cStart, "minutes") / cSpan) * height,
-                height: Math.max(MIN_CHILD, (durationMinutes(event) / cSpan) * height),
-                leftPct: (col / ncols) * 100,
-                widthPct: 100 / ncols,
-            }));
+            const kids = placed.map(({ event, col }) => {
+                const kidHeight = Math.max(20, (durationMinutes(event) / cSpan) * height);
+                return {
+                    event,
+                    top: (eventStart(event).diff(cStart, "minutes") / cSpan) * height,
+                    height: kidHeight,
+                    // Too short for two stacked lines: fall back to a single ellipsized line
+                    oneLine: kidHeight < 46,
+                    leftPct: (col / ncols) * 100,
+                    widthPct: 100 / ncols,
+                };
+            });
             return { type: "container", container, height, kids };
         }
 
-        const height = Math.max(MIN_BLOCK, Math.max(...cluster.map(durationMinutes)) * SCALE);
+        const height = Math.min(MAX_SINGLE, Math.max(MIN_BLOCK, Math.max(...cluster.map(durationMinutes)) * SCALE));
         return { type: "columns", events: cluster, height };
     }
 
@@ -135,6 +172,7 @@
 
         const dayKey = date.format("YYYY-MM-DD");
         const sameDay = dayKey === loadedDayKey;
+        now = window.moment();
 
         hourFormat = plugin.settings.timelineHourFormat;
         let newEvents = await listEvents({
@@ -243,7 +281,16 @@
 
     <div class ="gcal-schedule-container">
         {#if codeBlockOptions.navigation && date}
-            <DayNavigation bind:dateOffset bind:date bind:startDate {codeBlockOptions} />
+            <DayNavigation bind:dateOffset bind:date bind:startDate {codeBlockOptions}>
+                <button
+                    slot="extra"
+                    class="gcal-icon-btn {hidePast ? "is-active" : ""}"
+                    aria-label={hidePast ? "Show past events" : "Hide past events"}
+                    on:click={toggleHidePast}
+                >
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+                </button>
+            </DayNavigation>
         {:else if date}
             <div class="gcal-schedule-static-header">
                 <h3 class="gcal-schedule-static-weekday">{date.format("dddd")}</h3>
@@ -257,7 +304,7 @@
                 <div class="gcal-schedule-allday-row">
                     {#each allDayEvents as event}
                         <div
-                            class="gcal-schedule-allday-chip {isPast(event) ? "gcal-schedule-pastEvent" : ""}"
+                            class="gcal-schedule-allday-chip {isPast(event, now) ? "gcal-schedule-pastEvent" : ""}"
                             style:border-left-color="{getColorFromEvent(event)}"
                             on:click="{(e) => goToEvent(event, e)}"
                             on:keypress="{(e) => goToEvent(event, e)}"
@@ -270,7 +317,7 @@
                 {#each laidOutClusters as cl}
                     {#if cl.type === "single"}
                         <div
-                            class="gcal-schedule-block {cl.event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(cl.event) ? "gcal-schedule-pastEvent" : ""}"
+                            class="gcal-schedule-block {cl.event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(cl.event, now) ? "gcal-schedule-pastEvent" : ""}"
                             style:height="{cl.height}px"
                             style:border-left-color="{getColorFromEvent(cl.event)}"
                             on:click="{(e) => goToEvent(cl.event, e)}"
@@ -285,7 +332,7 @@
                         </div>
                     {:else if cl.type === "container"}
                         <div
-                            class="gcal-schedule-block gcal-schedule-container-block {cl.container.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(cl.container) ? "gcal-schedule-pastEvent" : ""}"
+                            class="gcal-schedule-block gcal-schedule-container-block {cl.container.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(cl.container, now) ? "gcal-schedule-pastEvent" : ""}"
                             style:height="{cl.height}px"
                             style:border-left-color="{getColorFromEvent(cl.container)}"
                             on:click="{(e) => goToEvent(cl.container, e)}"
@@ -302,7 +349,7 @@
                             <div class="gcal-schedule-nested">
                                 {#each cl.kids as kid}
                                     <div
-                                        class="gcal-schedule-block gcal-schedule-child-block {kid.event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(kid.event) ? "gcal-schedule-pastEvent" : ""}"
+                                        class="gcal-schedule-block gcal-schedule-child-block {kid.event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(kid.event, now) ? "gcal-schedule-pastEvent" : ""}"
                                         style:top="{kid.top}px"
                                         style:height="{kid.height}px"
                                         style:left="{kid.leftPct}%"
@@ -311,8 +358,12 @@
                                         on:click|stopPropagation="{(e) => goToEvent(kid.event, e)}"
                                         on:keypress|stopPropagation="{(e) => goToEvent(kid.event, e)}"
                                     >
-                                        <span class="gcal-schedule-block-time">{getDateString(kid.event, hourFormat)}</span>
-                                        <span class="gcal-schedule-block-title">{kid.event.summary}</span>
+                                        {#if kid.oneLine}
+                                            <span class="gcal-schedule-block-oneline">{getDateString(kid.event, hourFormat)} · {kid.event.summary}</span>
+                                        {:else}
+                                            <span class="gcal-schedule-block-time">{getDateString(kid.event, hourFormat)}</span>
+                                            <span class="gcal-schedule-block-title">{kid.event.summary}</span>
+                                        {/if}
                                     </div>
                                 {/each}
                             </div>
@@ -321,7 +372,7 @@
                         <div class="gcal-schedule-cluster">
                             {#each cl.events as event}
                                 <div
-                                    class="gcal-schedule-block {event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(event) ? "gcal-schedule-pastEvent" : ""}"
+                                    class="gcal-schedule-block {event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(event, now) ? "gcal-schedule-pastEvent" : ""}"
                                     style:height="{cl.height}px"
                                     style:border-left-color="{getColorFromEvent(event)}"
                                     on:click="{(e) => goToEvent(event, e)}"
@@ -448,8 +499,8 @@
         display: flex;
         flex-direction: column;
         gap: 4px;
-        flex: 0 0 40%;
-        min-width: 90px;
+        flex: 0 0 32%;
+        min-width: 80px;
         overflow: hidden;
     }
 
@@ -466,6 +517,15 @@
         gap: 2px;
         padding: 4px 8px;
         font-size: 0.85em;
+    }
+
+    /* Very short children can't fit two lines, so time and title share one */
+    .gcal-schedule-block-oneline {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 1.2;
     }
 
     .gcal-schedule-recurring .gcal-schedule-block-time::after {

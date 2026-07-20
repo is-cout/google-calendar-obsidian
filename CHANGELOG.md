@@ -50,6 +50,17 @@ Format: `YYYY-MM-DD — description. Why. Files touched.`
   for collapsing. Files: `src/svelte/views/ScheduleView.svelte`,
   `src/svelte/views/MonthView.svelte`, `src/svelte/components/DayNavigation.svelte`.
 
+- 2026-07-15 — Unified nav bar: the month view now renders the same nav markup as the
+  schedule/timeline views (shared styles live in `styles.css`) instead of the
+  obsidian-calendar-ui nav, which is hidden. This also drops the fragile DOM-relocation
+  action and the CSS text-replacement used to force an English "Today". Schedule view gains
+  a clock toggle that hides already-ended events so the current one sits first (persisted),
+  and nested children now derive the container's scale from the shortest child, so their
+  heights stay truly proportional to duration and fill the container instead of all
+  clamping to the same minimum. Files: `src/svelte/views/MonthView.svelte`,
+  `src/svelte/views/ScheduleView.svelte`, `src/svelte/components/DayNavigation.svelte`,
+  `src/helper/types.ts`, `styles.css`.
+
 ## Tooling / setup (non-versioned)
 
 - 2026-07-15 — Build now copies `main.js`/`manifest.json`/`styles.css` into the vault

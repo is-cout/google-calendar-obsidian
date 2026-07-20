@@ -59,6 +59,8 @@
         </div>
     {/if}
     <div class="gcal-right-nav">
+        <!-- View-specific controls (e.g. the schedule's hide-past toggle) -->
+        <slot name="extra" />
         <button class="gcal-icon-btn" aria-label={compact ? "Show date header" : "Hide date header"} on:click={toggleCompact}>
             {#if compact}
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.53 13.53 0 0 0 2 12s3 8 10 8a9.74 9.74 0 0 0 5.39-1.61"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
@@ -90,73 +92,4 @@
 </div>
 
 
-<style>
-    .gcal-day-nav {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 1em;
-        min-height: 2.2em;
-    }
-
-    .gcal-date-container {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .gcal-date-dayofweek {
-        margin: 0;
-        text-transform: capitalize;
-        color: var(--text-muted);
-        font-weight: 500;
-    }
-
-    .gcal-date-main {
-        margin: 0;
-    }
-
-    .gcal-right-nav {
-        display: flex;
-        align-items: center;
-        gap: 2px;
-        margin-left: auto;
-    }
-
-    /* Clean, background-less controls matching the month view's nav */
-    .gcal-icon-btn,
-    .gcal-today-btn {
-        background: transparent;
-        border: none;
-        box-shadow: none;
-        color: var(--text-muted);
-        cursor: pointer;
-    }
-
-    .gcal-icon-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        height: 24px;
-        width: 24px;
-        padding: 0;
-    }
-
-    .gcal-icon-btn:hover,
-    .gcal-today-btn:hover {
-        color: var(--text-normal);
-        background: transparent;
-        box-shadow: none;
-    }
-
-    .gcal-today-btn {
-        display: inline-flex;
-        align-items: center;
-        height: 24px;
-        line-height: 1;
-        font-size: 0.7rem;
-        font-weight: 600;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        padding: 0 4px;
-    }
-</style>
+<!-- Nav bar styling is shared with the month view, see styles.css -->

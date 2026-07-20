@@ -358,6 +358,8 @@ export interface CodeBlockOptions {
 	showEventDots?: boolean;
 	// Day/schedule/timeline: collapse the big date header to just the nav arrows.
 	compactHeader?: boolean;
+	// Schedule view only: hide events that already ended, so the current one is first.
+	hidePastEvents?: boolean;
 	// Keep this for backwards compatibility with old code blocks replacing with offset
 	dayOffset?: number;
 }

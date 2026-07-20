@@ -46,6 +46,85 @@
 	display: none !important;
 }
 
+/* ---- Shared view nav bar (month, schedule, timeline) ---- */
+
+.gcal-day-nav {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 1em;
+	min-height: 2.2em;
+}
+
+.gcal-date-container {
+	display: flex;
+	flex-direction: column;
+}
+
+.gcal-date-dayofweek {
+	margin: 0;
+	text-transform: capitalize;
+	color: var(--text-muted);
+	font-weight: 500;
+}
+
+.gcal-date-main,
+.gcal-nav-title {
+	margin: 0;
+}
+
+.gcal-nav-title .gcal-nav-title-accent {
+	color: var(--interactive-accent);
+}
+
+.gcal-right-nav {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	margin-left: auto;
+}
+
+.gcal-icon-btn,
+.gcal-today-btn {
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.gcal-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 24px;
+	width: 24px;
+	padding: 0;
+}
+
+.gcal-icon-btn:hover,
+.gcal-today-btn:hover {
+	color: var(--text-normal);
+	background: transparent;
+	box-shadow: none;
+}
+
+.gcal-icon-btn.is-active {
+	color: var(--interactive-accent);
+}
+
+.gcal-today-btn {
+	display: inline-flex;
+	align-items: center;
+	height: 24px;
+	line-height: 1;
+	font-size: 0.7rem;
+	font-weight: 600;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	padding: 0 4px;
+}
+
 /* Styling for month view dots by calendar color */
 .googleCalendarDot_1 {
 	fill: #ac725e !important;
