@@ -65,6 +65,21 @@
     const isPast = (event: GoogleEvent, ref: moment.Moment): boolean =>
         eventEnd(event).isBefore(ref, "minute");
 
+    // Status dot on the right of a card, signalling how imminent the event is:
+    //   "live" (green)  - happening now (start <= now <= end)
+    //   "soon" (orange) - starts within SOON_MINUTES
+    //   "far"  (red)    - starts further out
+    //   null            - already over -> no dot
+    const SOON_MINUTES = 30;
+    const eventStatus = (event: GoogleEvent, ref: moment.Moment): "live" | "soon" | "far" | null => {
+        if (event.start.date) return null; // all-day events have no time-based status
+        const start = eventStart(event);
+        if (isPast(event, ref)) return null;
+        if (!start.isAfter(ref)) return "live";
+        if (start.diff(ref, "minutes") <= SOON_MINUTES) return "soon";
+        return "far";
+    };
+
     // Layout scale: block height signals duration. Minimums keep text readable.
     const SCALE = 1.0;         // px per minute
     const MIN_BLOCK = 64;      // top-level block / container
@@ -334,6 +349,7 @@
             <div class="gcal-schedule-timeline">
                 {#each laidOutClusters as cl}
                     {#if cl.type === "single"}
+                        {@const status = eventStatus(cl.event, now)}
                         <div
                             class="gcal-schedule-block {cl.event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(cl.event, now) ? "gcal-schedule-pastEvent" : ""}"
                             style:height="{cl.height}px"
@@ -347,8 +363,10 @@
                                 on:keypress|stopPropagation={switchHourDisplay}
                             >{getDateString(cl.event, hourFormat)}</span>
                             <span class="gcal-schedule-block-title">{cl.event.summary}</span>
+                            {#if status}<span class="gcal-schedule-dot gcal-schedule-dot-{status}"></span>{/if}
                         </div>
                     {:else if cl.type === "container"}
+                        {@const status = eventStatus(cl.container, now)}
                         <div
                             class="gcal-schedule-block gcal-schedule-container-block {cl.container.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(cl.container, now) ? "gcal-schedule-pastEvent" : ""}"
                             style:height="{cl.height}px"
@@ -356,6 +374,7 @@
                             on:click="{(e) => goToEvent(cl.container, e)}"
                             on:keypress="{(e) => goToEvent(cl.container, e)}"
                         >
+                            {#if status}<span class="gcal-schedule-dot gcal-schedule-dot-{status}"></span>{/if}
                             <div class="gcal-schedule-container-label">
                                 <span
                                     class="gcal-schedule-block-time"
@@ -389,6 +408,7 @@
                     {:else}
                         <div class="gcal-schedule-cluster">
                             {#each cl.events as event}
+                                {@const status = eventStatus(event, now)}
                                 <div
                                     class="gcal-schedule-block {event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(event, now) ? "gcal-schedule-pastEvent" : ""}"
                                     style:height="{cl.height}px"
@@ -402,6 +422,7 @@
                                         on:keypress|stopPropagation={switchHourDisplay}
                                     >{getDateString(event, hourFormat)}</span>
                                     <span class="gcal-schedule-block-title">{event.summary}</span>
+                                    {#if status}<span class="gcal-schedule-dot gcal-schedule-dot-{status}"></span>{/if}
                                 </div>
                             {/each}
                         </div>
@@ -476,6 +497,7 @@
        Must not flex-shrink: these are children of a column flex container, so a
        flex basis here would override the inline height and squash every card. */
     .gcal-schedule-block {
+        position: relative;
         flex-shrink: 0;
         min-width: 0;
         display: flex;
@@ -484,9 +506,34 @@
         border-left: 4px solid gray;
         border-radius: 8px;
         padding: 8px 10px;
+        /* Reserve room on the right so the status dot never sits over the title */
+        padding-right: 22px;
         background-color: var(--background-secondary);
         cursor: pointer;
         overflow: hidden;
+    }
+
+    /* Status dot: how imminent the event is, pinned to the card's top-right corner */
+    .gcal-schedule-dot {
+        position: absolute;
+        top: 10px;
+        right: 8px;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        z-index: 1;
+    }
+
+    .gcal-schedule-dot-live {
+        background-color: var(--color-green, #2ecc40);
+    }
+
+    .gcal-schedule-dot-soon {
+        background-color: var(--color-orange, #ff851b);
+    }
+
+    .gcal-schedule-dot-far {
+        background-color: var(--color-red, #ff4136);
     }
 
     .gcal-schedule-block:hover {

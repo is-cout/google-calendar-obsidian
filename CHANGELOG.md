@@ -4,6 +4,14 @@ This fork's running log of what diverged from the upstream
 [obsidian-google-calendar](https://github.com/YukiGasai/obsidian-google-calendar).
 Format: `YYYY-MM-DD — description. Why. Files touched.`
 
+## 1.12.0
+
+- 2026-07-20 — Add a status dot to the right of schedule-view event cards showing how
+  imminent each event is: green = happening now (start ≤ now ≤ end), orange = starts within
+  30 minutes, red = starts further out, no dot once the event has ended. Applies to standalone,
+  container, and side-by-side cards (not all-day chips or nested children). Why: quick at-a-glance
+  read of what's up next. Files: `src/svelte/views/ScheduleView.svelte`.
+
 ## 1.11.1
 
 - 2026-07-20 — Fix schedule view events flashing away and reappearing on auto-refresh
