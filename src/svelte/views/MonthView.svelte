@@ -31,6 +31,27 @@
     let today = window.moment();
     let plugin = GoogleCalendarPlugin.getInstance();
 
+    // The calendar's nav row is rendered by obsidian-calendar-ui, so the dots toggle is
+    // relocated into it after mount. That way it sits in the same flex row as the arrows
+    // and the "today" button and centers vertically without magic offsets.
+    const moveIntoNav = (node: HTMLElement) => {
+        let frame: number;
+        const tryMove = (attempts = 0) => {
+            const nav = node.closest(".gcal-calendar-container")?.querySelector(".right-nav");
+            if (nav) {
+                nav.insertBefore(node, nav.firstChild);
+                return;
+            }
+            if (attempts < 60) frame = requestAnimationFrame(() => tryMove(attempts + 1));
+        };
+        tryMove();
+        return {
+            destroy() {
+                if (frame) cancelAnimationFrame(frame);
+            },
+        };
+    };
+
     // Event dots are shown unless explicitly disabled; toggle persists per month view.
     $: hideEventDots = codeBlockOptions.showEventDots === false;
     const toggleEventDots = () => {
@@ -327,6 +348,7 @@
         {:else}
             <button
                 class="gcal-toggle-dots"
+                use:moveIntoNav
                 aria-label={hideEventDots ? "Show event dots" : "Hide event dots"}
                 on:click={toggleEventDots}
             >
@@ -378,20 +400,17 @@
         position: relative;
     }
 
-    /* Icon-only toggle placed in the free space left of the month nav arrows,
-       vertically centered on the nav row (which starts 0.6em from the top). */
+    /* Icon-only toggle, relocated into the calendar's nav row by moveIntoNav */
     .gcal-toggle-dots {
-        position: absolute;
-        top: 0.6em;
-        right: 130px;
-        z-index: 2;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        height: 1.5em;
-        width: 28px;
+        height: 24px;
+        width: 24px;
+        margin-right: 4px;
         padding: 0;
         background: transparent;
+        border: none;
         box-shadow: none;
         color: var(--text-muted);
         cursor: pointer;
@@ -399,21 +418,29 @@
 
     .gcal-toggle-dots:hover {
         color: var(--text-normal);
+        background: transparent;
+        box-shadow: none;
     }
 
-    /* Vertically center the "today" reset button with the month nav arrows */
+    /* Vertically center everything in the nav row */
     .gcal-calendar-container :global(.right-nav) {
         align-items: center;
     }
 
-    /* Show the reset button label in English ("Today") instead of the localized word */
+    /* Show the reset button label in English ("Today") instead of the localized word,
+       as a centered flex item so it lines up with the arrows */
     .gcal-calendar-container :global(.reset-button) {
         font-size: 0 !important;
+        display: inline-flex;
+        align-items: center;
+        height: 24px;
+        line-height: 1;
     }
 
     .gcal-calendar-container :global(.reset-button)::after {
         content: "Today";
         font-size: 0.7rem;
+        line-height: 1;
         letter-spacing: 1px;
     }
 </style>

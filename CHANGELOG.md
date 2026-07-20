@@ -41,6 +41,14 @@ Format: `YYYY-MM-DD — description. Why. Files touched.`
   longer blanks the day's events. Month view: English "Today" label and better spacing/
   centering of the dots toggle. Files: `src/svelte/views/ScheduleView.svelte`,
   `src/svelte/views/MonthView.svelte`.
+- 2026-07-15 — Follow-up fixes: schedule cards no longer collapse to one uniform height
+  (the base block carried a flex basis that overrode its computed height inside the column
+  layout); the collapsed-day-header choice now actually persists (it was written to a
+  `codeBlockOptions` object that `ViewSettings` had already replaced, so it never reached
+  `data.json`); the month dots toggle is relocated into the calendar's own nav row so it
+  centers with the arrows; and the day nav controls are background-less with an eye icon
+  for collapsing. Files: `src/svelte/views/ScheduleView.svelte`,
+  `src/svelte/views/MonthView.svelte`, `src/svelte/components/DayNavigation.svelte`.
 
 ## Tooling / setup (non-versioned)
 

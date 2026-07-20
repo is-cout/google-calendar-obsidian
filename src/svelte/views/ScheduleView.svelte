@@ -395,11 +395,19 @@
         flex-direction: row;
         gap: 8px;
         align-items: stretch;
+        flex-shrink: 0;
     }
 
-    /* Each event is a square-ish card whose height signals its duration */
-    .gcal-schedule-block {
+    /* Only inside a side-by-side cluster do blocks share the width evenly */
+    .gcal-schedule-cluster > .gcal-schedule-block {
         flex: 1 1 0;
+    }
+
+    /* Each event is a square-ish card whose height signals its duration.
+       Must not flex-shrink: these are children of a column flex container, so a
+       flex basis here would override the inline height and squash every card. */
+    .gcal-schedule-block {
+        flex-shrink: 0;
         min-width: 0;
         display: flex;
         flex-direction: column;
