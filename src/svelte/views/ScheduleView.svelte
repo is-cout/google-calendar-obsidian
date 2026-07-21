@@ -325,6 +325,7 @@
     <div class ="gcal-schedule-container">
         {#if codeBlockOptions.navigation && date}
             <DayNavigation bind:dateOffset bind:date bind:startDate {codeBlockOptions}>
+                <span slot="compact-left" class="gcal-schedule-clock">{getDateText(now, hourFormat)}</span>
                 <button
                     slot="extra"
                     class="gcal-icon-btn {hidePast ? "is-active" : ""}"
@@ -465,6 +466,14 @@
         text-transform: capitalize;
         color: var(--text-muted);
         font-weight: 500;
+    }
+
+    /* Current time, shown left of the nav while the date header is collapsed */
+    .gcal-schedule-clock {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        white-space: nowrap;
     }
 
     .gcal-schedule-allday-row {

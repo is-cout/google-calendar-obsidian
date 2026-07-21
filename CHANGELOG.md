@@ -4,6 +4,14 @@ This fork's running log of what diverged from the upstream
 [obsidian-google-calendar](https://github.com/YukiGasai/obsidian-google-calendar).
 Format: `YYYY-MM-DD — description. Why. Files touched.`
 
+## 1.13.0
+
+- 2026-07-21 — Show the current time on the left of the schedule view nav bar while the date
+  header is collapsed. The collapsed header left that space empty and dropped the only time
+  reference from the view. Uses the same `now` moment refreshed on every 5s poll and the
+  view's hour format. Files: `src/svelte/components/DayNavigation.svelte` (new
+  `compact-left` slot), `src/svelte/views/ScheduleView.svelte`.
+
 ## 1.12.1
 
 - 2026-07-21 — Fix the real cause of schedule view events disappearing and reappearing.

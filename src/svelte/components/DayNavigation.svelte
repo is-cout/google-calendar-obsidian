@@ -52,6 +52,10 @@
 </script>
 
 <div class="gcal-day-nav">
+    <!-- Left-side slot, only while the date header is hidden (e.g. the schedule's clock) -->
+    {#if compact}
+        <slot name="compact-left" />
+    {/if}
     {#if !compact}
         <div class="gcal-date-container">
             <h3 class="gcal-date-dayofweek">{date.format("dddd")}</h3>
