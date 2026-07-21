@@ -2,7 +2,7 @@
     import type { CodeBlockOptions, GoogleEvent } from "../../helper/types";
 
     import { googleClearCachedEvents, googleListEvents } from "../../googleApi/GoogleListEvents";
-    import { logError } from "../../helper/log";
+    import { log, logError } from "../../helper/log";
     import { getColorFromEvent } from "../../googleApi/GoogleColors";
     import { EventDetailsModal } from "../../modal/EventDetailsModal";
     import { onDestroy } from "svelte";
@@ -21,9 +21,6 @@
     let date;
     let loading = false;
     let events:GoogleEvent[] = [];
-    // Day currently rendered ("YYYY-MM-DD"). Only a change of this key lets an empty
-    // fetch result blank the view; same-day fetches never do.
-    let loadedDayKey = "";
     let interval;
     let hourFormat = plugin.settings.timelineHourFormat;
 
@@ -158,6 +155,17 @@
 
     $: laidOutClusters = clusters.map(buildClusterLayout);
 
+    // Stable key for keyed {#each}. Keying stops Svelte tearing down and rebuilding the card
+    // DOM when `events` is reassigned to an equivalent list, which is what makes the cards
+    // visibly flash. Same idea as the timeline view keeping its grid mounted.
+    const evKey = (e: GoogleEvent): string =>
+        `${e.id ?? e.summary ?? ""}@${e.start.dateTime ?? e.start.date ?? ""}`;
+    const clusterKey = (cl: any): string => {
+        if (cl.type === "single") return `s:${evKey(cl.event)}`;
+        if (cl.type === "container") return `c:${evKey(cl.container)}`;
+        return `g:${cl.events.map(evKey).join(",")}`;
+    };
+
     // Group timed events into clusters where each event overlaps the running span,
     // so overlapping events can be laid out next to each other.
     const buildClusters = (list: GoogleEvent[]): GoogleEvent[][] => {
@@ -178,23 +186,23 @@
         return result;
     }
 
-    const getEvents = async(date:moment.Moment) => {
-        if(loading) return;
+    const getEvents = async(date:moment.Moment, source = "unknown") => {
+        if(loading){
+            log(`[schedule] getEvents(${source}) skipped: already loading`);
+            return;
+        }
         if(!date?.isValid()){
+            log(`[schedule] getEvents(${source}) skipped: invalid date`);
             return;
         }
 
         loading = true;
         try {
-            const dayKey = date.format("YYYY-MM-DD");
-            // Same-day re-fetches (the 5s poll, a settings toggle that re-runs the reactive
-            // block, an edit callback) must never blank the view. Only navigating to a
-            // different day is allowed to show an empty result. This is what keeps events
-            // from flashing away: an empty response is only trusted on a day change.
-            const dayChanged = dayKey !== loadedDayKey;
             now = window.moment();
 
             hourFormat = plugin.settings.timelineHourFormat;
+
+            log(`[schedule] getEvents(${source}) start`, { day: date.format("YYYY-MM-DD"), shown: events.length });
 
             // Fetch via googleListEvents (which throws) rather than listEvents (which swallows
             // errors and returns []). A failed fetch — 401 during a token refresh, a network
@@ -209,9 +217,12 @@
                     exclude: codeBlockOptions.exclude
                 });
             } catch (err) {
+                log(`[schedule] getEvents(${source}) FETCH THREW -> keeping ${events.length} shown`, err);
                 logError(err);
                 return;
             }
+
+            const fetchedCount = newEvents.length;
 
             newEvents = newEvents.filter(event => {
                 if(event.start.date) return codeBlockOptions.showAllDay;
@@ -223,19 +234,16 @@
                        (endHour >= codeBlockOptions.hourRange[0] && endHour <= codeBlockOptions.hourRange[1]) ||
                         (startHour < codeBlockOptions.hourRange[0] && endHour > codeBlockOptions.hourRange[1])
             })
+
+            log(`[schedule] getEvents(${source}) fetched=${fetchedCount} afterFilter=${newEvents.length}`);
+
             //only reload if events change
             if(JSON.stringify(newEvents) == JSON.stringify(events)){
-                loadedDayKey = dayKey;
+                log(`[schedule] getEvents(${source}) no change -> keep`);
                 return;
             }
-            // On the same day, a transient empty result (token refresh in flight, Google's
-            // list API responding empty due to eventual consistency, a throttled timer
-            // firing in a burst on window refocus) is ignored while events are shown.
-            if(!dayChanged && newEvents.length === 0 && events.length > 0){
-                return;
-            }
+            log(`[schedule] getEvents(${source}) replace ${events.length} -> ${newEvents.length}`);
             events = newEvents;
-            loadedDayKey = dayKey;
         } finally {
             loading = false;
         }
@@ -272,12 +280,12 @@
         if(e.shiftKey){
             plugin.initView(VIEW_TYPE_GOOGLE_CALENDAR_EVENT_DETAILS, event, () => {
 				googleClearCachedEvents();
-				getEvents(date);
+				getEvents(date, "edit");
 			})
         }else{
             new EventDetailsModal(event, () => {
                 googleClearCachedEvents();
-                getEvents(date);
+                getEvents(date, "edit");
             }).open();
         }
     }
@@ -288,11 +296,13 @@
         : window.moment().add(codeBlockOptions.offset, "days");
         date = codeBlockOptions.navigation ? startDate.clone().local().add(dateOffset, "days") : startDate;
 
+        log(`[schedule] reactive block fired`, { date: date?.format?.("YYYY-MM-DD"), dateOffset });
+
         if(interval){
             clearInterval(interval);
         }
-        interval = setInterval(() => getEvents(date), 5000);
-        getEvents(date);
+        interval = setInterval(() => getEvents(date, "poll"), 5000);
+        getEvents(date, "reactive");
     }
 
     onDestroy(() => {
@@ -335,7 +345,7 @@
         {:else}
             {#if allDayEvents.length}
                 <div class="gcal-schedule-allday-row">
-                    {#each allDayEvents as event}
+                    {#each allDayEvents as event (evKey(event))}
                         <div
                             class="gcal-schedule-allday-chip {isPast(event, now) ? "gcal-schedule-pastEvent" : ""}"
                             style:border-left-color="{getColorFromEvent(event)}"
@@ -347,7 +357,7 @@
             {/if}
 
             <div class="gcal-schedule-timeline">
-                {#each laidOutClusters as cl}
+                {#each laidOutClusters as cl (clusterKey(cl))}
                     {#if cl.type === "single"}
                         {@const status = eventStatus(cl.event, now)}
                         <div
@@ -384,7 +394,7 @@
                                 <span class="gcal-schedule-block-title">{cl.container.summary}</span>
                             </div>
                             <div class="gcal-schedule-nested">
-                                {#each cl.kids as kid}
+                                {#each cl.kids as kid (evKey(kid.event))}
                                     <div
                                         class="gcal-schedule-block gcal-schedule-child-block {kid.event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(kid.event, now) ? "gcal-schedule-pastEvent" : ""}"
                                         style:top="{kid.top}px"
@@ -407,7 +417,7 @@
                         </div>
                     {:else}
                         <div class="gcal-schedule-cluster">
-                            {#each cl.events as event}
+                            {#each cl.events as event (evKey(event))}
                                 {@const status = eventStatus(event, now)}
                                 <div
                                     class="gcal-schedule-block {event.recurringEventId ? "gcal-schedule-recurring" : ""} {isPast(event, now) ? "gcal-schedule-pastEvent" : ""}"

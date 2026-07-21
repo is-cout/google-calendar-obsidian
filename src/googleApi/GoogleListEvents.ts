@@ -41,17 +41,22 @@ export async function googleListEvents(
 
 	const plugin = GoogleCalendarPlugin.getInstance();
 
+	// Clone before normalising: moment mutates in place, so without this a caller passing
+	// the same moment as both start and end (e.g. a single-day view doing
+	// `{startDate: date, endDate: date}`) would have it mutated to startOf day and then to
+	// endOf day, collapsing the range to a zero-width window (timeMin === timeMax) and
+	// returning almost no events. It also stops us mutating the caller's own date state.
 	//Make sure there is a start date
 	if (!startDate) {
 		startDate = window.moment();
 	}
-	startDate = startDate.startOf("day");
+	startDate = startDate.clone().startOf("day");
 
 	//Make sure there is a end date
 	if (!endDate) {
 		endDate = startDate.clone();
 	}
-	endDate = endDate.endOf("day");
+	endDate = endDate.clone().endOf("day");
 
 	//Get all calendars not on the black list
 	let calendarList = await googleListCalendars();

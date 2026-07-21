@@ -4,6 +4,24 @@ This fork's running log of what diverged from the upstream
 [obsidian-google-calendar](https://github.com/YukiGasai/obsidian-google-calendar).
 Format: `YYYY-MM-DD — description. Why. Files touched.`
 
+## 1.12.1
+
+- 2026-07-21 — Fix the real cause of schedule view events disappearing and reappearing.
+  `moment` mutates in place, and `googleListEvents` normalised its arguments with
+  `startDate.startOf("day")` / `endDate.endOf("day")` directly. The schedule view passes the
+  *same* moment as both bounds (`{startDate: date, endDate: date}`), so the second call
+  mutated the object the first had already set, collapsing the request to a zero-width range
+  (`timeMin === timeMax`) and returning almost no events. The view then oscillated — e.g.
+  20 events when the shared day cache had been filled by another view's correct wide-range
+  request, 3 when the cache expired and the schedule issued its own broken one. The timeline
+  view never showed this because it passes a clone as its end date. `googleListEvents` now
+  clones both bounds before normalising, which also stops it mutating callers' date state.
+  Removes the same-day empty-result guard added while chasing the wrong cause (it wrongly
+  kept showing the last event of a day after it was deleted); the keyed `{#each}` blocks and
+  the fetch-failure/`loading` try/finally handling are kept, and debug-mode logging of the
+  refresh cycle stays in. Files: `src/googleApi/GoogleListEvents.ts`,
+  `src/svelte/views/ScheduleView.svelte`.
+
 ## 1.12.0
 
 - 2026-07-20 — Add a status dot to the right of schedule-view event cards showing how
