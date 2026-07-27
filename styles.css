@@ -220,3 +220,47 @@
 .googleCalendarDot_24 {
 	fill: #a47ae2 !important;
 }
+
+/* ---- Time blocking tag picker (right-click on an event) ---- */
+
+.gcal-timeblock-tag-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.gcal-timeblock-tag {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 10px;
+	border-radius: 8px;
+	background-color: var(--background-secondary);
+	cursor: pointer;
+}
+
+.gcal-timeblock-tag:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.gcal-timeblock-tag-color {
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.gcal-timeblock-tag-text {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.gcal-timeblock-tag-name {
+	font-weight: 500;
+}
+
+.gcal-timeblock-tag-desc {
+	font-size: 0.8rem;
+	color: var(--text-muted);
+}

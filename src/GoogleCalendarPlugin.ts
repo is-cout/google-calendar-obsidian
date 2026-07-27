@@ -21,6 +21,9 @@ import { addAccountFromTokens } from "./googleApi/GoogleAuth";
 import { EventListModal } from './modal/EventListModal';
 import { checkForEventNotes, createNoteFromEvent } from "./helper/AutoEventNoteCreator";
 import { EventDetailsModal } from "./modal/EventDetailsModal";
+import { ManageTimeBlockTagsModal } from "./modal/ManageTimeBlockTagsModal";
+import { ConfirmDeleteTimeBlocksModal } from "./modal/ConfirmDeleteTimeBlocksModal";
+import { autoBuildTimeBlocks, findTimeBlocksToDelete } from "./helper/TimeBlockBuilder";
 import { checkEditorForInsertedEvents } from "./helper/CheckEditorForInsertedEvents";
 import { TemplateSuggest } from "./suggest/TemplateSuggest";
 import { InsertEventsModal } from "./modal/InsertEventsModal";
@@ -66,6 +69,15 @@ const DEFAULT_SETTINGS: GoogleCalendarPluginSettings = {
 	dailyNoteDotColor: "#6aa1d8",
 	useWeeklyNotes: false,
 	debugMode: false,
+	timeBlockEventName: "Time blocking",
+	timeBlockColorId: "8",
+	timeBlockTags: [],
+	timeBlockFillStartHour: 8,
+	timeBlockFillEndHour: 18,
+	timeBlockDuration: 30,
+	timeBlockFillDays: 1,
+	timeBlockSmartFill: false,
+	timeBlockIgnorePatterns: [],
 	timelineHourFormat: 0,
 	atAnnotationEnabled: true,
 	usDateFormat: true,
@@ -379,6 +391,64 @@ export default class GoogleCalendarPlugin extends Plugin {
 			},
 		});
 
+
+		//Manage time block tags command
+		this.addCommand({
+			id: "manage-google-calendar-time-block-tags",
+			name: "Manage gCal Time Block Tags",
+			callback: () => new ManageTimeBlockTagsModal().open(),
+		});
+
+		//Fill the free space of the day with time block events
+		this.addCommand({
+			id: "auto-build-google-calendar-time-blocks",
+			name: "Auto Build gCal Time Blocks",
+
+			checkCallback: (checking: boolean) => {
+				const canRun = settingsAreCompleteAndLoggedIn();
+
+				if (checking) {
+					return canRun;
+				}
+
+				if (!canRun) {
+					return;
+				}
+
+				createNotice("Building time blocks...");
+				autoBuildTimeBlocks().then((created) => {
+					createNotice(created
+						? `Created ${created} time block(s).`
+						: "No free space left inside the time block fill window.");
+				});
+			},
+		});
+
+		//Remove all untagged time block events again
+		this.addCommand({
+			id: "delete-google-calendar-time-blocks",
+			name: "Delete All gCal Time Blocks",
+
+			checkCallback: (checking: boolean) => {
+				const canRun = settingsAreCompleteAndLoggedIn();
+
+				if (checking) {
+					return canRun;
+				}
+
+				if (!canRun) {
+					return;
+				}
+
+				findTimeBlocksToDelete().then((events) => {
+					if (!events.length) {
+						createNotice("No time blocks to delete.");
+						return;
+					}
+					new ConfirmDeleteTimeBlocksModal(events).open();
+				});
+			},
+		});
 
 		//List calendar command
 		this.addCommand({

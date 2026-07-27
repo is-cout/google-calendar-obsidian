@@ -10,6 +10,7 @@
 	import ViewSettings from "../components/ViewSettings.svelte";
     import DayNavigation from "../components/DayNavigation.svelte";
 	import { VIEW_TYPE_GOOGLE_CALENDAR_EVENT_DETAILS } from "../../view/EventDetailsView";
+    import { TimeBlockModal } from "../../modal/TimeBlockModal";
 
     export let codeBlockOptions: CodeBlockOptions;
     export let isObsidianView = false;
@@ -290,6 +291,14 @@
         }
     }
 
+    // Right-click a card to tag it as a time block (or convert it into one first).
+    const openTimeBlock = (event:GoogleEvent) => {
+        new TimeBlockModal(event, () => {
+            googleClearCachedEvents();
+            getEvents(date, "timeblock");
+        }).open();
+    }
+
     $: {
         startDate = codeBlockOptions.date
         ? window.moment(codeBlockOptions.date).add(codeBlockOptions.offset, "days")
@@ -352,6 +361,7 @@
                             style:border-left-color="{getColorFromEvent(event)}"
                             on:click="{(e) => goToEvent(event, e)}"
                             on:keypress="{(e) => goToEvent(event, e)}"
+                            on:contextmenu|preventDefault="{() => openTimeBlock(event)}"
                         >{event.summary}</div>
                     {/each}
                 </div>
@@ -367,6 +377,7 @@
                             style:border-left-color="{getColorFromEvent(cl.event)}"
                             on:click="{(e) => goToEvent(cl.event, e)}"
                             on:keypress="{(e) => goToEvent(cl.event, e)}"
+                            on:contextmenu|preventDefault="{() => openTimeBlock(cl.event)}"
                         >
                             <span
                                 class="gcal-schedule-block-time"
@@ -384,6 +395,7 @@
                             style:border-left-color="{getColorFromEvent(cl.container)}"
                             on:click="{(e) => goToEvent(cl.container, e)}"
                             on:keypress="{(e) => goToEvent(cl.container, e)}"
+                            on:contextmenu|preventDefault|stopPropagation="{() => openTimeBlock(cl.container)}"
                         >
                             {#if status}<span class="gcal-schedule-dot gcal-schedule-dot-{status}"></span>{/if}
                             <div class="gcal-schedule-container-label">
@@ -405,6 +417,7 @@
                                         style:border-left-color="{getColorFromEvent(kid.event)}"
                                         on:click|stopPropagation="{(e) => goToEvent(kid.event, e)}"
                                         on:keypress|stopPropagation="{(e) => goToEvent(kid.event, e)}"
+                                        on:contextmenu|preventDefault|stopPropagation="{() => openTimeBlock(kid.event)}"
                                     >
                                         {#if kid.oneLine}
                                             <span class="gcal-schedule-block-oneline">{getDateString(kid.event, hourFormat)} · {kid.event.summary}</span>
@@ -426,6 +439,7 @@
                                     style:border-left-color="{getColorFromEvent(event)}"
                                     on:click="{(e) => goToEvent(event, e)}"
                                     on:keypress="{(e) => goToEvent(event, e)}"
+                                    on:contextmenu|preventDefault="{() => openTimeBlock(event)}"
                                 >
                                     <span
                                         class="gcal-schedule-block-time"

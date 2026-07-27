@@ -6,6 +6,7 @@
 	import { updateEvent } from "../../googleApi/GoogleUpdateEvent";
 	import { googleClearCachedEvents } from "../../googleApi/GoogleListEvents";
 	import { log } from "../../helper/log";
+	import { TimeBlockModal } from "../../modal/TimeBlockModal";
 
     export let location: Location;
 	export let goToEvent;
@@ -39,6 +40,13 @@
         log("onDragLongClick", data);
     };
 
+    // Right-click opens the time block tag picker for this event.
+    let onContextMenu = () => {
+        new TimeBlockModal(location.event, () => {
+            googleClearCachedEvents();
+        }).open();
+    };
+
     let getEventClassList = (width): string => {
         const baseList = [
             "googleCalendarEvent", 
@@ -65,6 +73,7 @@ style:width="{location.width}%"
 style:height="{location.height}px"
 style:background={getColorFromEvent(location.event)}
 bind:clientWidth={realWidth}
+on:contextmenu|preventDefault={onContextMenu}
 >
 <span
     class="

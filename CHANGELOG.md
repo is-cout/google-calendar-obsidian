@@ -4,6 +4,84 @@ This fork's running log of what diverged from the upstream
 [obsidian-google-calendar](https://github.com/YukiGasai/obsidian-google-calendar).
 Format: `YYYY-MM-DD — description. Why. Files touched.`
 
+## 1.15.0
+
+- 2026-07-27 — Fix right-clicking a timeline event opening the event details modal.
+  `MouseControll` started its drag/click flow on any mouse button, so the right button also
+  ran `onDragClick`. It now ignores everything but the left button, leaving the context menu
+  to the time block popup. Files: `src/svelte/components/MouseControll.svelte`.
+- 2026-07-27 — Read the event color list from the Google colors endpoint instead of the
+  hardcoded table, so colors Google adds show up in the tag editor. The table stays as the
+  offline fallback, and color lookups no longer index blindly (an unknown `colorId` used to
+  throw in `getColorFromEvent`). Files: `src/googleApi/GoogleColors.ts`
+  (`getEventColorOptions`, `loadEventColorOptions`), `src/modal/ManageTimeBlockTagsModal.ts`,
+  `src/view/GoogleCalendarSettingTab.ts`.
+- 2026-07-27 — The auto build fill window moves in half hours instead of whole hours, since
+  a day rarely starts on the hour. The setting stores fractional hours (5.5) and is applied
+  in minutes; the settings description spells the window out as clock times, because a "5.5"
+  slider tooltip does not read as 05:30. Files: `src/helper/TimeBlockPlanner.ts`,
+  `src/view/GoogleCalendarSettingTab.ts`.
+- 2026-07-27 — Multi day events keep counting as busy. `googleListEvents` resolves an event
+  spanning several days into one 00:00-23:59 piece per day, which makes every day it covers
+  unfillable — a vacation event was why auto build produced nothing. Blanket-skipping those
+  was considered and rejected: a multi day event genuinely can be busy time, so this stays
+  the user's call through the fill ignore patterns. The debug log names the event, which is
+  what actually makes it findable. Files: `src/helper/TimeBlockPlanner.ts`.
+- 2026-07-27 — Auto build no longer counts events shown as "Free" (`transparency:
+  transparent`) or invites the user declined as busy time, matching how Google's own
+  free/busy view reads a calendar. A work calendar full of declined invites and background
+  "Free" events left literally no gap to fill. The per-day debug log now prints one flat
+  line per timed event with why it was kept or skipped (`BUSY` / `SKIP shown as free` /
+  `SKIP declined` / `SKIP fill ignore pattern`), since the console collapses arrays. Files:
+  `src/helper/TimeBlockPlanner.ts` (`occupiesTime`), `src/helper/TimeBlockBuilder.ts`.
+- 2026-07-27 — Make auto build diagnosable: it logs the fill window, every busy slot with its
+  title and the resulting gaps per day in debug mode, warns when creating a block fails, and
+  the command says "no free space left" instead of "created 0" when the window is full. The
+  planning math moved to `TimeBlockPlanner.ts`, which has no plugin or Obsidian imports, so
+  it can be checked in isolation — verified against 15 scenarios (empty day, overlapping
+  events, all-day events, window clipping to now, ignore patterns, leftover absorption).
+  Files: `src/helper/TimeBlockPlanner.ts` (new), `src/helper/TimeBlockBuilder.ts`,
+  `src/GoogleCalendarPlugin.ts`.
+- 2026-07-27 — Stop auto build treating events hidden by the plugin-wide `ignorePatternList`
+  as free time. That list is about what the views display; an event it hides still occupies
+  the slot in Google Calendar, and only the time block fill ignore patterns may free a slot
+  up. `googleListEvents` grew an `applyIgnorePatterns` option (default true) which also
+  bypasses the event cache, since the cache stores the filtered list. Same fix for the
+  delete command, so a hidden time block stays deletable. Files:
+  `src/googleApi/GoogleListEvents.ts`, `src/helper/types.ts` (`ListOptions`),
+  `src/helper/TimeBlockBuilder.ts`.
+- 2026-07-27 — Add auto build for time blocks, so the placeholder events don't have to be
+  created by hand. `Auto Build gCal Time Blocks` scans the free space of each day in the
+  horizon and fills it with individual placeholder events; `Delete All gCal Time Blocks`
+  removes the untagged ones again after a confirmation, which is the undo for a bad fill.
+  New settings: fill window (start/end hour), block duration (default 30 min), days to fill,
+  a separate regex ignore list whose matches don't count as busy (kept apart from the
+  plugin-wide `ignorePatternList`, which has a different job), and smart fill — block length
+  derived from the time of day (90 min in the late-morning focus peak, 30 min in the
+  post-lunch dip) following the ultradian rhythm. Files: `src/helper/TimeBlockBuilder.ts`
+  (new), `src/modal/ConfirmDeleteTimeBlocksModal.ts` (new), `src/helper/types.ts`,
+  `src/GoogleCalendarPlugin.ts`, `src/view/GoogleCalendarSettingTab.ts`,
+  `documentation/content/TimeBlocking.md`, `documentation/content/Commands.md`.
+
+## 1.14.0
+
+- 2026-07-27 — Add time blocking. Generic placeholder events (title configurable, default
+  `Time blocking`) can be tagged from the timeline and schedule views: right-click an event
+  to open a tag picker, applying a tag renames the event, sets its Google event color and
+  writes the tag's optional description. Right-clicking an event that is *not* a placeholder
+  offers to convert it into one first (configured name + color), then shows the picker — this
+  doubles as the way to re-tag an already tagged event. Tags (name + color + optional
+  description) are edited in the settings tab or via the new `Manage gCal Time Block Tags`
+  command, and live in the plugin settings only. Files: `src/helper/types.ts` (new
+  `TimeBlockTag`, three settings), `src/helper/TimeBlockHelper.ts` (new),
+  `src/modal/TimeBlockModal.ts` (new), `src/modal/ManageTimeBlockTagsModal.ts` (new),
+  `src/googleApi/GoogleColors.ts` (`eventColorOptions`, `getHexFromEventColorId`),
+  `src/GoogleCalendarPlugin.ts` (defaults + command),
+  `src/view/GoogleCalendarSettingTab.ts`, `src/svelte/views/ScheduleView.svelte`,
+  `src/svelte/components/EventBox.svelte`, `styles.css`,
+  `documentation/content/TimeBlocking.md` (new), `documentation/content/Commands.md`,
+  `README.md`.
+
 ## 1.13.0
 
 - 2026-07-21 — Show the current time on the left of the schedule view nav bar while the date

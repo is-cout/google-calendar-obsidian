@@ -15,6 +15,7 @@ Manage your Google Calendar from inside Obsidian.
 - Connect multiple Google accounts at once, with per-calendar selection across all of them
 - Month view: toggle button to hide per-day event dots for a clean calendar
 - Schedule view: single-day agenda with duration-sized event cards and side-by-side overlap
+- Time blocking: right-click an event in the timeline or schedule view to apply a tag (name + color) to a generic time block, or convert any event into one
 - And more...
 
 ## Getting Started

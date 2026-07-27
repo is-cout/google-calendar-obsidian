@@ -60,6 +60,19 @@ export interface GoogleCalendarPluginSettings {
     timelineHourFormat: number;
     usDateFormat: boolean;
 
+    // Time blocking settings
+    timeBlockEventName: string;
+    timeBlockColorId: string;
+    timeBlockTags: TimeBlockTag[];
+    // Auto build: which part of the day may be filled, how long the blocks are,
+    // how far ahead to fill and which events don't count as busy.
+    timeBlockFillStartHour: number;
+    timeBlockFillEndHour: number;
+    timeBlockDuration: number;      // minutes, used when smart fill is off
+    timeBlockFillDays: number;      // days ahead to fill, starting today
+    timeBlockSmartFill: boolean;
+    timeBlockIgnorePatterns: string[];
+
     // General settings
     refreshInterval: number;
     atAnnotationEnabled: boolean;
@@ -67,6 +80,15 @@ export interface GoogleCalendarPluginSettings {
 
 	viewSettings: { [type in string]: CodeBlockOptions };
     }
+
+// A reusable label applied to a generic time blocking event. Applying it renames the
+// event to the tag's name and repaints it with the tag's Google event color.
+export interface TimeBlockTag {
+	id: string;
+	name: string;
+	colorId: string;      // Google event colorId ("1" - "11")
+	description?: string; // optional, written to the event description when applied
+}
 
 export interface Template {
 	name: string,
@@ -328,6 +350,9 @@ export interface ListOptions {
 	endDate?: moment.Moment;
 	exclude?: string[];
 	include?: string[];
+	// Defaults to true. Set to false to get the events the plugin-wide `ignorePatternList`
+	// hides — that list is about what the views show, not about what occupies the calendar.
+	applyIgnorePatterns?: boolean;
 }
 
 export interface IGoogleCalendarPluginApi {

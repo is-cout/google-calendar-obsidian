@@ -36,6 +36,7 @@ export async function googleListEvents(
 		endDate,
 		exclude,
 		include,
+		applyIgnorePatterns = true,
 	}: ListOptions = {}
 ): Promise<GoogleEvent[]> {
 
@@ -89,7 +90,8 @@ export async function googleListEvents(
 			startDate,
 			endDate,
 			includeColors,
-			excludeColors
+			excludeColors,
+			applyIgnorePatterns
 		);
 
 		eventList = [...eventList, ...events];
@@ -333,11 +335,16 @@ async function googleListEventsByCalendar(
 	startDate: moment.Moment,
 	endDate: moment.Moment,
 	includeColors: string[] = [],
-	excludeColors: string[] = []
+	excludeColors: string[] = [],
+	applyIgnorePatterns = true
 ): Promise<GoogleEvent[]> {
 
-	//Check if the events are already cached and return them if they are
-	const alreadyCachedEvents = checkForCachedEvents(plugin, GoogleCalendar, startDate, endDate)
+	// The cache holds the ignore-filtered list, so a caller that needs the unfiltered
+	// events (time block auto build, which has its own separate ignore list) must not
+	// read from it, and must not write its wider result back into it either.
+	const alreadyCachedEvents = applyIgnorePatterns
+		? checkForCachedEvents(plugin, GoogleCalendar, startDate, endDate)
+		: null;
 	if(alreadyCachedEvents) {
 		return alreadyCachedEvents.filter((indexEvent: GoogleEvent) => {
 			if ( includeColors.length > 0) {
@@ -355,7 +362,7 @@ async function googleListEventsByCalendar(
 
 	//Filter out events with ignore pattern
 	// Ignore this if no ignore list is set
-	if(plugin.settings.ignorePatternList.length > 0) {
+	if(applyIgnorePatterns && plugin.settings.ignorePatternList.length > 0) {
 		totalEventList = totalEventList.filter(event => 
 		!plugin.settings.ignorePatternList.some(ignoreText => {
 			// Check if the ignore text is a regex pattern
@@ -376,14 +383,16 @@ async function googleListEventsByCalendar(
 		return startMoment.format("YYYY-MM-DD");
 	});
 
-	const currentDate = startDate.clone();
-	while (currentDate <= endDate) {
-		const formattedDate = currentDate.format("YYYY-MM-DD");
+	if (applyIgnorePatterns) {
+		const currentDate = startDate.clone();
+		while (currentDate <= endDate) {
+			const formattedDate = currentDate.format("YYYY-MM-DD");
 
-		const cacheKey: string = JSON.stringify({ day: formattedDate, calendar: GoogleCalendar.id });
-		cachedEvents.set(cacheKey, { events: groupedEvents[formattedDate] || [], updated: window.moment() })
-		
-		currentDate.add(1, "day");
+			const cacheKey: string = JSON.stringify({ day: formattedDate, calendar: GoogleCalendar.id });
+			cachedEvents.set(cacheKey, { events: groupedEvents[formattedDate] || [], updated: window.moment() })
+
+			currentDate.add(1, "day");
+		}
 	}
 
 	return totalEventList.filter((indexEvent: GoogleEvent) => {

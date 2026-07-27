@@ -15,10 +15,21 @@ import { FileSuggest } from "../suggest/FileSuggest";
 import { FolderSuggest } from "../suggest/FolderSuggester";
 import { checkForNewWeeklyNotes } from "../helper/DailyNoteHelper";
 import { OAuthAlertModal } from "../modal/OAuthAlertModal";
+import { renderTimeBlockTagList } from "../modal/ManageTimeBlockTagsModal";
+import { getEventColorOptions, loadEventColorOptions } from "../googleApi/GoogleColors";
+
+// Turns a fractional hour setting (5.5) into a clock time ("05:30").
+function formatHourValue(hourValue: number): string {
+	const totalMinutes = Math.round(hourValue * 60);
+	const hours = Math.floor(totalMinutes / 60);
+	const minutes = totalMinutes % 60;
+	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
 
 export class GoogleCalendarSettingTab extends PluginSettingTab {
 	plugin: GoogleCalendarPlugin;
 	ignoreListText = "";
+	timeBlockIgnoreText = "";
 	constructor(app: App, plugin: GoogleCalendarPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
@@ -26,6 +37,10 @@ export class GoogleCalendarSettingTab extends PluginSettingTab {
 
 	display(): void {
 		const { containerEl } = this;
+
+		// Warm the event color cache so the color dropdowns below offer whatever
+		// Google currently supports the next time this tab is opened.
+		loadEventColorOptions();
 
 		containerEl.empty();
 
@@ -437,6 +452,152 @@ export class GoogleCalendarSettingTab extends PluginSettingTab {
 						});
 					});
 			});
+		}
+
+		// ---- Time blocking ----
+		containerEl.createEl("h3", { text: "Time blocking" });
+
+		new Setting(containerEl)
+			.setName("Time block event name")
+			.setDesc("Title of the generic placeholder events. Right-clicking an event with this title opens the tag picker.")
+			.addText((text) =>
+				text
+					.setPlaceholder("Time blocking")
+					.setValue(this.plugin.settings.timeBlockEventName)
+					.onChange(async (value) => {
+						this.plugin.settings.timeBlockEventName = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Time block event color")
+			.setDesc("Color used when converting an event into a time block")
+			.addDropdown((dropdown) => {
+				getEventColorOptions().forEach((color) => dropdown.addOption(color.id, color.name));
+				dropdown.setValue(this.plugin.settings.timeBlockColorId);
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.timeBlockColorId = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		containerEl.createEl("h4", { text: "Tags" });
+		renderTimeBlockTagList(containerEl, () => this.display());
+
+		containerEl.createEl("h4", { text: "Auto build" });
+
+		// Sliders move in half hours, so the description spells the window out as clock
+		// times — a raw "5.5" tooltip is not readable as 05:30.
+		const fillWindowSetting = new Setting(containerEl)
+			.setName("Fill window")
+			.setClass("SubSettings");
+		const describeFillWindow = () => fillWindowSetting.setDesc(
+			`Part of the day auto build may fill with time blocks: ${formatHourValue(this.plugin.settings.timeBlockFillStartHour)} - ${formatHourValue(this.plugin.settings.timeBlockFillEndHour)}`
+		);
+		describeFillWindow();
+		fillWindowSetting
+			.addSlider((slider) => {
+				slider.setLimits(0, 23.5, 0.5);
+				slider.setValue(this.plugin.settings.timeBlockFillStartHour);
+				slider.setDynamicTooltip();
+				slider.onChange(async (value) => {
+					this.plugin.settings.timeBlockFillStartHour = value;
+					describeFillWindow();
+					await this.plugin.saveSettings();
+				});
+			})
+			.addSlider((slider) => {
+				slider.setLimits(0.5, 24, 0.5);
+				slider.setValue(this.plugin.settings.timeBlockFillEndHour);
+				slider.setDynamicTooltip();
+				slider.onChange(async (value) => {
+					this.plugin.settings.timeBlockFillEndHour = value;
+					describeFillWindow();
+					await this.plugin.saveSettings();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName("Smart fill")
+			.setDesc("Pick each block's length from the time of day (long blocks in the late-morning focus peak, short ones in the post-lunch dip) instead of using a fixed duration")
+			.setClass("SubSettings")
+			.addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.timeBlockSmartFill);
+				toggle.onChange(async (value) => {
+					this.plugin.settings.timeBlockSmartFill = value;
+					await this.plugin.saveSettings();
+					this.display();
+				});
+			});
+
+		if (!this.plugin.settings.timeBlockSmartFill) {
+			new Setting(containerEl)
+				.setName("Block duration")
+				.setDesc("Length in minutes of each created time block")
+				.setClass("SubSettings")
+				.addSlider((slider) => {
+					slider.setLimits(15, 180, 15);
+					slider.setValue(this.plugin.settings.timeBlockDuration);
+					slider.setDynamicTooltip();
+					slider.onChange(async (value) => {
+						this.plugin.settings.timeBlockDuration = value;
+						await this.plugin.saveSettings();
+					});
+				});
+		}
+
+		new Setting(containerEl)
+			.setName("Days to fill")
+			.setDesc("How many days ahead to fill, starting today")
+			.setClass("SubSettings")
+			.addSlider((slider) => {
+				slider.setLimits(1, 30, 1);
+				slider.setValue(this.plugin.settings.timeBlockFillDays);
+				slider.setDynamicTooltip();
+				slider.onChange(async (value) => {
+					this.plugin.settings.timeBlockFillDays = value;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName("Fill ignore patterns")
+			.setDesc("Regex patterns. Events whose title matches don't count as busy, so auto build may place time blocks over them. Separate from the plugin wide pattern ignore list.")
+			.setClass("SubSettings")
+			.addText((text) => {
+				text.setPlaceholder("e.g. ^Tentative");
+				text.setValue(this.timeBlockIgnoreText);
+				text.onChange((value) => {
+					this.timeBlockIgnoreText = value;
+				});
+			})
+			.addButton((button) => {
+				button.setButtonText("Add");
+				button.onClick(async () => {
+					if (!this.timeBlockIgnoreText) return;
+					this.plugin.settings.timeBlockIgnorePatterns = [
+						...this.plugin.settings.timeBlockIgnorePatterns,
+						this.timeBlockIgnoreText,
+					];
+					this.timeBlockIgnoreText = "";
+					await this.plugin.saveSettings();
+					this.display();
+				});
+			});
+
+		for (const pattern of this.plugin.settings.timeBlockIgnorePatterns) {
+			new Setting(containerEl)
+				.setName(pattern)
+				.setClass("SubSettings")
+				.addButton((button) => {
+					button.setButtonText("Remove");
+					button.onClick(async () => {
+						this.plugin.settings.timeBlockIgnorePatterns.remove(pattern);
+						await this.plugin.saveSettings();
+						this.display();
+					});
+				});
 		}
 
 		new Setting(containerEl)

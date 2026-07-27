@@ -12,6 +12,9 @@ title: Commands
 |Open gCal Schedule View | Open the [[ScheduleView]] |
 |Create gCal Event inside Popup | Open the [[EventDetailsView]] in a modal to create a new event |
 |Create gCal Event inside View | Open the [[EventDetailsView]] in a view to create a new event |
+|Auto Build gCal Time Blocks | Fill the free space of the day with [[TimeBlocking \| time block]] events |
+|Delete All gCal Time Blocks | Remove all untagged [[TimeBlocking \| time block]] events again |
+|Manage gCal Time Block Tags | Create, edit and remove [[TimeBlocking \| time block tags]] |
 |List Google Calendars | Open a list of all calendars |
 |List gCal Events | Open a list of all events of the day |
 |gCal Trigger Auto Import | Run the [[AutoImport]] function again |
