@@ -14,6 +14,8 @@
     let drag: MouseControlData = null;
     let horizontal = 0;
     let handleMoveStart = (e: MouseEvent, moveType: MoveType) => {
+        // Only the left button drags/opens the event. Right click is the time block menu.
+        if (e.button !== 0) return;
         (e.target as HTMLDivElement).parentElement.style.zIndex = "1000";
         (e.target as HTMLDivElement).parentElement.parentElement.parentElement.style.overflow = "visible"
         let rect = (e.target as HTMLDivElement).getBoundingClientRect();
