@@ -26,6 +26,15 @@ function formatHourValue(hourValue: number): string {
 	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
+// Half hour steps between two fractional hours, as dropdown options.
+function halfHourOptions(from: number, to: number): { value: string, label: string }[] {
+	const options = [];
+	for (let hourValue = from; hourValue <= to; hourValue += 0.5) {
+		options.push({ value: String(hourValue), label: formatHourValue(hourValue) });
+	}
+	return options;
+}
+
 export class GoogleCalendarSettingTab extends PluginSettingTab {
 	plugin: GoogleCalendarPlugin;
 	ignoreListText = "";
@@ -487,33 +496,25 @@ export class GoogleCalendarSettingTab extends PluginSettingTab {
 
 		containerEl.createEl("h4", { text: "Auto build" });
 
-		// Sliders move in half hours, so the description spells the window out as clock
-		// times — a raw "5.5" tooltip is not readable as 05:30.
-		const fillWindowSetting = new Setting(containerEl)
+		// Clock time dropdowns rather than sliders: the value is a fractional hour (5.5), and
+		// a slider can only show it as "5.5", which nobody reads as 05:30.
+		new Setting(containerEl)
 			.setName("Fill window")
-			.setClass("SubSettings");
-		const describeFillWindow = () => fillWindowSetting.setDesc(
-			`Part of the day auto build may fill with time blocks: ${formatHourValue(this.plugin.settings.timeBlockFillStartHour)} - ${formatHourValue(this.plugin.settings.timeBlockFillEndHour)}`
-		);
-		describeFillWindow();
-		fillWindowSetting
-			.addSlider((slider) => {
-				slider.setLimits(0, 23.5, 0.5);
-				slider.setValue(this.plugin.settings.timeBlockFillStartHour);
-				slider.setDynamicTooltip();
-				slider.onChange(async (value) => {
-					this.plugin.settings.timeBlockFillStartHour = value;
-					describeFillWindow();
+			.setDesc("Part of the day auto build may fill with time blocks")
+			.setClass("SubSettings")
+			.addDropdown((dropdown) => {
+				halfHourOptions(0, 23.5).forEach((option) => dropdown.addOption(option.value, option.label));
+				dropdown.setValue(String(this.plugin.settings.timeBlockFillStartHour));
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.timeBlockFillStartHour = parseFloat(value);
 					await this.plugin.saveSettings();
 				});
 			})
-			.addSlider((slider) => {
-				slider.setLimits(0.5, 24, 0.5);
-				slider.setValue(this.plugin.settings.timeBlockFillEndHour);
-				slider.setDynamicTooltip();
-				slider.onChange(async (value) => {
-					this.plugin.settings.timeBlockFillEndHour = value;
-					describeFillWindow();
+			.addDropdown((dropdown) => {
+				halfHourOptions(0.5, 24).forEach((option) => dropdown.addOption(option.value, option.label));
+				dropdown.setValue(String(this.plugin.settings.timeBlockFillEndHour));
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.timeBlockFillEndHour = parseFloat(value);
 					await this.plugin.saveSettings();
 				});
 			});

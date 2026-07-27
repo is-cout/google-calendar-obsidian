@@ -18,9 +18,9 @@ Format: `YYYY-MM-DD — description. Why. Files touched.`
   `src/view/GoogleCalendarSettingTab.ts`.
 - 2026-07-27 — The auto build fill window moves in half hours instead of whole hours, since
   a day rarely starts on the hour. The setting stores fractional hours (5.5) and is applied
-  in minutes; the settings description spells the window out as clock times, because a "5.5"
-  slider tooltip does not read as 05:30. Files: `src/helper/TimeBlockPlanner.ts`,
-  `src/view/GoogleCalendarSettingTab.ts`.
+  in minutes, and it is picked from clock time dropdowns (`05:30`, `06:00`, …) instead of
+  sliders, which could only render the value as "5.5". Files:
+  `src/helper/TimeBlockPlanner.ts`, `src/view/GoogleCalendarSettingTab.ts`.
 - 2026-07-27 — Multi day events keep counting as busy. `googleListEvents` resolves an event
   spanning several days into one 00:00-23:59 piece per day, which makes every day it covers
   unfillable — a vacation event was why auto build produced nothing. Blanket-skipping those
