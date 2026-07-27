@@ -8,6 +8,8 @@
  */
 
 import type { GoogleEvent } from "../helper/types";
+import { callRequest } from "../helper/RequestWrapper";
+import { logError } from "../helper/log";
 
 const calendarColors = {
    "1": {
@@ -161,6 +163,49 @@ export const allColorNames = [
 	])
 ];
 
+export type EventColorOption = { id: string, name: string, hex: string };
+
+// The hardcoded table above is only the offline fallback. Google can add event colors, so
+// the real list is fetched from the colors endpoint once per session and cached here.
+let eventColorOptionsCache: EventColorOption[] = Object.entries(eventColors)
+	.map(([id, color]) => ({ id, name: color.name, hex: color.hex }));
+
+/**
+ * The event colors known right now. Synchronous, so UIs can render immediately;
+ * call `loadEventColorOptions` first if the freshest list matters.
+ */
+export function getEventColorOptions(): EventColorOption[] {
+	return eventColorOptionsCache;
+}
+
+/**
+ * Fetch the event colors from the API, so colors Google added after this table was
+ * written are selectable too. Falls back to the hardcoded list on any error.
+ */
+export async function loadEventColorOptions(): Promise<EventColorOption[]> {
+	try {
+		const response = await callRequest("https://www.googleapis.com/calendar/v3/colors", "GET", null);
+		const entries = Object.entries(response?.event ?? {});
+		if (entries.length) {
+			eventColorOptionsCache = entries.map(([id, color]: [string, any]) => ({
+				id,
+				name: eventColors[id]?.name ?? `Color ${id}`,
+				hex: color.background,
+			}));
+		}
+	} catch (error) {
+		logError(error);
+	}
+	return eventColorOptionsCache;
+}
+
+/**
+ * Hex of a Google event colorId, falling back to the default event color.
+ */
+export function getHexFromEventColorId(colorId: string): string {
+	return eventColorOptionsCache.find(color => color.id === colorId)?.hex ?? "#a4bdfc";
+}
+
 export const allEventColorsNames = [
 	...Object.values(eventColors).map(color => color.name),
 ];
@@ -173,10 +218,11 @@ export const allEventColorsNames = [
 export function getColorFromEvent(event: GoogleEvent): string {
 
 	if (event.colorId) {
-		return eventColors[event.colorId].hex;
+		// Unknown ids can show up when Google adds colors, so never index blindly.
+		return getHexFromEventColorId(event.colorId);
 
 	} else if (event.parent.colorId) {
-		return calendarColors[event.parent.colorId].hex;
+		return calendarColors[event.parent.colorId]?.hex ?? "#a4bdfc";
 
 	} else {
 		//Default color for any errors
