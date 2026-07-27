@@ -204,6 +204,10 @@ Format: `YYYY-MM-DD — description. Why. Files touched.`
 
 ## Tooling / setup (non-versioned)
 
+- 2026-07-27 — Rewrite the README so it states up front that this is a fork of
+  `YukiGasai/obsidian-google-calendar` (stale upstream), splits the feature list into
+  inherited vs. fork additions, and documents manual installation from this fork's releases.
+  The old README read as if it were the upstream project. Files: `README.md`.
 - 2026-07-15 — Build now copies `main.js`/`manifest.json`/`styles.css` into the vault
   plugin dir on `npm run build` (via `scripts/copy-to-vault.mjs` + `.env.local`). Pinned
   all `package.json` dependency versions exactly per the dependency policy. Realigned the
